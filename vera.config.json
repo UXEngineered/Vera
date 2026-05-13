@@ -1,0 +1,12 @@
+{
+  "artifacts_enabled": [
+    "scope_check"
+  ],
+  "watch": {},
+  "llm": {},
+  "stacks": {
+    "url": "http://localhost:3000",
+    "fieldbook_id": "fb-1776794533986",
+    "sync_enabled": true
+  }
+}
