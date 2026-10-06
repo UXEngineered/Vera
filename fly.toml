@@ -1,36 +1,39 @@
-# Deploy: fly launch --no-deploy --copy-config (pick an app name), then
-#   fly secrets set ANTHROPIC_API_KEY=sk-ant-...
-#   fly deploy
-app = "vera-demo"
-primary_region = "lhr"
+# fly.toml app configuration file generated for vera-qio5gg on 2026-10-06T11:21:32Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'vera-qio5gg'
+primary_region = 'lhr'
 
 [build]
 
 [env]
-  VERA_RATE_LIMIT = "6"        # live generations per IP per window
-  VERA_RATE_WINDOW_MIN = "60"
-  VERA_DAILY_CAP = "300"       # live generations per day, across everyone
+  VERA_DAILY_CAP = '300'
+  VERA_RATE_LIMIT = '6'
+  VERA_RATE_WINDOW_MIN = '60'
 
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = "stop"
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
 
   [http_service.concurrency]
-    type = "requests"
-    soft_limit = 40
+    type = 'requests'
     hard_limit = 60
+    soft_limit = 40
 
   [[http_service.checks]]
-    grace_period = "10s"
-    interval = "30s"
-    method = "GET"
-    path = "/api/health"
-    timeout = "5s"
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '10s'
+    method = 'GET'
+    path = '/api/health'
 
 [[vm]]
-  memory = "512mb"
-  cpu_kind = "shared"
+  memory = '512mb'
+  cpu_kind = 'shared'
   cpus = 1
+  memory_mb = 512
