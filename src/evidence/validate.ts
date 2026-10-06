@@ -66,6 +66,11 @@ export interface EvidenceProfile {
   total: number;
   byConfidence: Record<Confidence, number>;
   conflictPairs: [string, string][];
+  /**
+   * Items contested by evidence at least as strong as themselves. A weaker item
+   * cannot demote a stronger one; the conflict is still surfaced either way.
+   */
+  contested: string[];
   /** The most VERA is allowed to claim about this log as a whole. */
   readiness: Readiness;
   reasons: string[];
@@ -93,6 +98,16 @@ export function profileEvidence(log: EvidenceLog): EvidenceProfile {
     }
   }
 
+  const rank = { low: 0, medium: 1, high: 2 } as const;
+  const byId = new Map(log.items.map((item) => [item.id, item]));
+  const contested = new Set<string>();
+  for (const [a, b] of conflictPairs) {
+    const ea = byId.get(a)!;
+    const eb = byId.get(b)!;
+    if (rank[eb.confidence] >= rank[ea.confidence]) contested.add(a);
+    if (rank[ea.confidence] >= rank[eb.confidence]) contested.add(b);
+  }
+
   const reasons: string[] = [];
   let readiness: Readiness = "ready";
   if (log.items.length < 5) reasons.push(`only ${log.items.length} evidence item(s)`);
@@ -105,5 +120,12 @@ export function profileEvidence(log: EvidenceLog): EvidenceProfile {
     if (reasons.length > 0) readiness = "partial";
   }
 
-  return { total: log.items.length, byConfidence, conflictPairs, readiness, reasons };
+  return {
+    total: log.items.length,
+    byConfidence,
+    conflictPairs,
+    contested: log.items.map((i) => i.id).filter((id) => contested.has(id)),
+    readiness,
+    reasons,
+  };
 }

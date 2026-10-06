@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { checkLanguage, CONTESTED_CAP } from "../confidence/rules.ts";
+import { checkLanguage, checkMeasurable, CONTESTED_CAP, EVAL_ROLES, type EvalRole } from "../confidence/rules.ts";
+import { toEvalSuiteJson } from "../deliverables/export.ts";
 import { formatIssues, profileEvidence, validateEvidenceLog } from "../evidence/validate.ts";
 import {
   confidenceLabel,
@@ -11,6 +12,7 @@ import {
   type CheckIssue,
   type Claim,
   type Deliverable,
+  type DeliverableId,
   type EvidenceItem,
   type EvidenceLog,
   type EvidenceProfile,
@@ -21,7 +23,6 @@ import {
   type StreamEvent,
 } from "./lib.ts";
 
-type DeliverableId = "strategy" | "roadmap";
 type Source = { kind: "sample"; name: SampleSummary["name"] } | { kind: "custom" };
 
 interface Run {
@@ -32,6 +33,7 @@ interface Run {
   recorded?: boolean;
   notice?: string;
   model?: string;
+  runId?: string;
   promptVersions?: string[];
   attempt: number;
   maxAttempts: number;
@@ -53,9 +55,22 @@ const SECTION_TITLES: Record<string, string> = {
   now: "Now",
   next: "Next",
   later: "Later",
+  regression: "Regression",
+  capability: "Capability",
+  exploratory: "Exploratory",
 };
 
-const EMPTY_REVIEW: ReviewState = { approved: {}, edits: {} };
+const DELIVERABLE_TITLES: Record<DeliverableId, string> = {
+  strategy: "Product strategy",
+  roadmap: "Roadmap",
+  eval_suite: "Eval suite",
+};
+
+/** An eval case's role is the section it was approved in (the checker caps it by evidence). */
+const roleOf = (claim: Claim): EvalRole => claim.id.split("-")[0] as EvalRole;
+const ROLE_BY_NAME = Object.fromEntries(Object.values(EVAL_ROLES).map((r) => [r.role, r])) as Record<EvalRole, (typeof EVAL_ROLES)["high"]>;
+
+const EMPTY_REVIEW: ReviewState = { approved: {}, edits: {}, criteria: {} };
 
 export function App() {
   const [config, setConfig] = useState<ServerConfig | null>(null);
@@ -119,7 +134,7 @@ export function App() {
             case "meta":
               return update((r) => ({ ...r, recorded: e.recorded, notice: e.notice, log: e.log }));
             case "start":
-              return update((r) => ({ ...r, profile: e.profile, model: e.model, promptVersions: e.prompt_versions }));
+              return update((r) => ({ ...r, profile: e.profile, model: e.model, runId: e.run_id, promptVersions: e.prompt_versions }));
             case "attempt":
               return update((r) => ({ ...r, attempt: e.attempt, maxAttempts: e.max_attempts, drafts: [] }));
             case "draft_section":
@@ -156,7 +171,9 @@ export function App() {
   const approvedCount = d ? d.sections.filter((s) => review.approved[s.id]).length : 0;
   const allApproved = Boolean(d) && approvedCount === d!.sections.length;
   const clientName = run?.log?.client.name ?? previewLog?.client.name ?? "";
-  const docTitle = run ? (run.deliverableId === "strategy" ? "Product strategy" : "Roadmap") : "";
+  const docTitle = run ? DELIVERABLE_TITLES[run.deliverableId] : "";
+  const isEvalSuite = d?.deliverable === "eval_suite";
+  const approvedCases = d && isEvalSuite ? d.sections.filter((s) => review.approved[s.id]).reduce((n, s) => n + s.claims.length, 0) : 0;
 
   function selectClaim(id: string) {
     setSelectedClaim((cur) => (cur === id ? null : id));
@@ -177,6 +194,21 @@ export function App() {
     URL.revokeObjectURL(a.href);
   }
 
+  function exportEvalSuite() {
+    if (!d || !run?.log) return;
+    const suite = toEvalSuiteJson(d, run.log, review, {
+      model: run.model ?? "",
+      prompt_versions: run.promptVersions ?? [],
+      run_id: run.runId ?? "",
+    });
+    const blob = new Blob([JSON.stringify(suite, null, 2) + "\n"], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `vera-eval-suite-${clientName.toLowerCase().replace(/\W+/g, "-")}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
   return (
     <div className="app">
       <header className="topbar">
@@ -185,6 +217,7 @@ export function App() {
           <div className="tagline">validated evidence → ready artifacts</div>
         </div>
         <div className="topbar-right">
+          {config?.preview && <span className="chip chip-preview">Preview</span>}
           {config && (
             <span className={`chip ${config.live ? "chip-live" : ""}`} title={config.model ?? undefined}>
               {config.live ? `Live · ${config.model?.split("/")[1]}` : "Recorded runs only"}
@@ -281,7 +314,7 @@ export function App() {
           </div>
 
           <button className="primary" disabled={!canGenerate} onClick={() => generate()}>
-            {run?.status === "streaming" ? "Generating…" : `Generate ${deliverableId === "strategy" ? "strategy" : "roadmap"}`}
+            {run?.status === "streaming" ? "Generating…" : `Generate ${DELIVERABLE_TITLES[deliverableId].toLowerCase()}`}
           </button>
           {config?.live && source.kind === "sample" && config.recorded[source.name]?.includes(deliverableId) && run?.status !== "streaming" && (
             <button className="link-button replay-link" onClick={() => generate("recorded")}>
@@ -293,7 +326,7 @@ export function App() {
             <EvidenceList
               log={previewLog}
               highlight={new Set(claim?.evidence_ids ?? [])}
-              conflicted={new Set((run?.profile ?? (source.kind === "sample" ? sample?.profile : custom?.ok ? custom.profile : undefined))?.conflictPairs.flat() ?? [])}
+              conflicted={new Set((run?.profile ?? (source.kind === "sample" ? sample?.profile : custom?.ok ? custom.profile : undefined))?.contested ?? [])}
             />
           )}
         </aside>
@@ -331,10 +364,14 @@ export function App() {
               {d && (
                 <>
                   <Readiness d={d} profile={run.profile} />
+                  {isEvalSuite && <SuiteSummary d={d} />}
                   {d.sections.map((s) => (
                     <article key={s.id} className={`section ${review.approved[s.id] ? "is-approved" : ""}`}>
                       <header className="section-head">
-                        <h2>{s.title}</h2>
+                        <div>
+                          <h2>{s.title}</h2>
+                          {isEvalSuite && <p className="section-purpose">{ROLE_BY_NAME[s.id as EvalRole]?.meaning}</p>}
+                        </div>
                         <div className="section-actions">
                           {review.approved[s.id] ? (
                             <>
@@ -364,9 +401,24 @@ export function App() {
                         {s.claims.map((c) => (
                           <li key={c.id}>
                             {editing === s.id ? (
-                              <ClaimEditor claim={c} value={review.edits[c.id] ?? c.text} onChange={(v) => setReview((r) => ({ ...r, edits: v === c.text ? omit(r.edits, c.id) : { ...r.edits, [c.id]: v } }))} />
+                              <ClaimEditor
+                                claim={c}
+                                value={review.edits[c.id] ?? c.text}
+                                onChange={(v) => setReview((r) => ({ ...r, edits: v === c.text ? omit(r.edits, c.id) : { ...r.edits, [c.id]: v } }))}
+                                criteria={review.criteria[c.id] ?? c.pass_criteria}
+                                onCriteriaChange={(v) =>
+                                  setReview((r) => ({ ...r, criteria: v === c.pass_criteria ? omit(r.criteria, c.id) : { ...r.criteria, [c.id]: v } }))
+                                }
+                              />
                             ) : (
-                              <ClaimView claim={c} text={review.edits[c.id] ?? c.text} edited={c.id in review.edits} selected={selectedClaim === c.id} onSelect={() => selectClaim(c.id)} />
+                              <ClaimView
+                                claim={c}
+                                text={review.edits[c.id] ?? c.text}
+                                criteria={review.criteria[c.id] ?? c.pass_criteria}
+                                edited={c.id in review.edits || c.id in review.criteria}
+                                selected={selectedClaim === c.id}
+                                onSelect={() => selectClaim(c.id)}
+                              />
                             )}
                           </li>
                         ))}
@@ -374,9 +426,15 @@ export function App() {
                     </article>
                   ))}
                   <footer className="doc-foot">
-                    <button className="ghost" onClick={exportMarkdown}>
-                      Export Markdown{allApproved ? "" : " (draft)"}
-                    </button>
+                    {isEvalSuite ? (
+                      <button className="ghost" onClick={exportEvalSuite} disabled={approvedCases === 0} title={approvedCases === 0 ? "Approve at least one section to export its cases" : undefined}>
+                        Export JSON · {approvedCases} approved case{approvedCases === 1 ? "" : "s"}
+                      </button>
+                    ) : (
+                      <button className="ghost" onClick={exportMarkdown}>
+                        Export Markdown{allApproved ? "" : " (draft)"}
+                      </button>
+                    )}
                     <RunMeta run={run} />
                   </footer>
                 </>
@@ -545,6 +603,28 @@ function Failure({ run }: { run: Run }) {
   );
 }
 
+function SuiteSummary({ d }: { d: Deliverable }) {
+  const cases = d.sections.flatMap((s) => s.claims);
+  const byRole = (role: EvalRole) => d.sections.find((s) => s.id === role)?.claims.length ?? 0;
+  const byGrader = (g: string) => cases.filter((c) => c.grader === g).length;
+  return (
+    <div className="suite-summary" aria-label="Eval suite summary">
+      <span className="suite-count">
+        <strong>{byRole("regression")}</strong> blocking
+      </span>
+      <span className="suite-count">
+        <strong>{byRole("capability")}</strong> tracked
+      </span>
+      <span className="suite-count suite-count-exploratory">
+        <strong>{byRole("exploratory")}</strong> exploratory
+      </span>
+      <span className="suite-graders">
+        graders · code {byGrader("code")} · model {byGrader("model")} · human {byGrader("human")}
+      </span>
+    </div>
+  );
+}
+
 function Readiness({ d, profile }: { d: Deliverable; profile?: EvidenceProfile }) {
   const r = READINESS[d.readiness];
   return (
@@ -558,16 +638,41 @@ function Readiness({ d, profile }: { d: Deliverable; profile?: EvidenceProfile }
   );
 }
 
-function ClaimView({ claim, text, edited, selected, onSelect }: { claim: Claim; text: string; edited: boolean; selected: boolean; onSelect: () => void }) {
+function ClaimView({
+  claim,
+  text,
+  criteria,
+  edited,
+  selected,
+  onSelect,
+}: {
+  claim: Claim;
+  text: string;
+  criteria?: string;
+  edited: boolean;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const isCase = Boolean(claim.scenario);
   return (
     <button className={`claim claim-${claim.confidence} ${selected ? "is-selected" : ""}`} onClick={onSelect} aria-pressed={selected}>
       <span className="claim-meta">
         <ConfidenceTag level={claim.confidence} />
         {claim.action && <span className={`action action-${claim.action}`}>{claim.action}</span>}
+        {isCase && ROLE_BY_NAME[roleOf(claim)]?.blocking && <span className="blocking-tag">Blocks release</span>}
+        {claim.grader && <span className="grader-tag">Grader · {claim.grader}</span>}
         {claim.contested && <span className="contested-tag">Contested</span>}
         {edited && <span className="edited-tag">Edited</span>}
       </span>
       <span className="claim-text">{text}</span>
+      {isCase && (
+        <span className="case-fields">
+          <span className="case-label">Scenario</span>
+          <span className="case-value">{claim.scenario}</span>
+          <span className="case-label">Pass when</span>
+          <span className="case-value">{criteria}</span>
+        </span>
+      )}
       <span className="claim-cites">
         {claim.evidence_ids.map((id) => (
           <span key={id} className="cite">
@@ -579,8 +684,21 @@ function ClaimView({ claim, text, edited, selected, onSelect }: { claim: Claim; 
   );
 }
 
-function ClaimEditor({ claim, value, onChange }: { claim: Claim; value: string; onChange: (v: string) => void }) {
+function ClaimEditor({
+  claim,
+  value,
+  onChange,
+  criteria,
+  onCriteriaChange,
+}: {
+  claim: Claim;
+  value: string;
+  onChange: (v: string) => void;
+  criteria?: string;
+  onCriteriaChange: (v: string) => void;
+}) {
   const warnings = checkLanguage(value, claim.confidence);
+  const criteriaWarnings = criteria !== undefined ? checkMeasurable(criteria) : [];
   return (
     <div className={`claim claim-${claim.confidence} is-editing`}>
       <span className="claim-meta">
@@ -592,6 +710,19 @@ function ClaimEditor({ claim, value, onChange }: { claim: Claim; value: string; 
         <p className="edit-warning">
           This wording reads as more certain than the evidence ({confidenceLabel(claim.confidence).toLowerCase()}): {warnings.map((w) => w.detail).join("; ")}. You can keep it; you decide.
         </p>
+      )}
+      {criteria !== undefined && (
+        <>
+          <label className="case-label" htmlFor={`criteria-${claim.id}`}>
+            Pass when
+          </label>
+          <textarea id={`criteria-${claim.id}`} className="criteria-input" value={criteria} onChange={(e) => onCriteriaChange(e.target.value)} rows={2} />
+          {criteriaWarnings.length > 0 && (
+            <p className="edit-warning">
+              A harness can't check this reliably: {criteriaWarnings.join("; ")}. You can keep it; you decide.
+            </p>
+          )}
+        </>
       )}
     </div>
   );
@@ -624,6 +755,15 @@ function TracePanel({ claim, evidenceById, hasDoc }: { claim?: Claim; evidenceBy
           {claim.contested && <> It rests on contested evidence, so it is capped at {confidenceLabel(CONTESTED_CAP).toLowerCase()}.</>}
           {moreCautious && <> VERA chose wording more cautious than the evidence requires.</>}
         </dd>
+        {claim.scenario && (
+          <>
+            <dt>Role</dt>
+            <dd>
+              <strong>{ROLE_BY_NAME[roleOf(claim)]?.label}</strong>. {ROLE_BY_NAME[roleOf(claim)]?.meaning}
+              {roleOf(claim) !== EVAL_ROLES[claim.derived_confidence].role && <> Its evidence would allow {EVAL_ROLES[claim.derived_confidence].label.toLowerCase()}.</>}
+            </dd>
+          </>
+        )}
       </dl>
       <h3 className="panel-subtitle">Cited evidence · {cited.length}</h3>
       <ul className="trace-evidence">

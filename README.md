@@ -42,7 +42,7 @@ flowchart LR
 | Model access | `src/llm/` | Thin provider interface. Anthropic by default; swap by config. Max tokens and timeout per call; every call is traced |
 | Generate → check → retry | `src/pipeline/`, `src/deliverables/check.ts` | Output checks are code, not prompt instructions |
 | Demo server + UI | `src/server/`, `src/web/` | Bun server, SSE streaming, React UI. API key stays server-side; per-IP and daily rate limits |
-| Evals | `evals/` | 16 cases across 6 runs, one command |
+| Evals | `evals/` | 20 cases across 7 runs, one command |
 
 ## 4. How confidence propagation works
 
@@ -57,7 +57,7 @@ Each evidence item has a confidence of `high`, `medium` or `low`. VERA turns tha
 The model doesn't get the final say. After generation, code:
 
 1. **Derives each claim's confidence** from the weakest evidence it cites. A claim resting on one high and one low item is low.
-2. **Caps contested evidence.** If a cited item conflicts with another item in the log, the claim is at most *Likely* until the conflict is resolved.
+2. **Caps contested evidence.** If a cited item conflicts with another item at least as strong as itself, the claim is at most *Likely* until the conflict is resolved. A weaker item can't demote a stronger one: one stakeholder's opinion doesn't cap a compliance finding. Every conflict is still surfaced.
 3. **Rejects claims labelled above their evidence**, and checks the wording against the table.
 4. **Rejects low-confidence roadmap items marked as `build`.** They must be `validate` or `investigate`.
 5. **Caps overall readiness.** A log with fewer than 5 items or no high-confidence evidence can only produce *Not enough evidence yet*, with at least 3 gaps.
@@ -74,21 +74,38 @@ bun run eval --record   # live run, saving raw model outputs to evals/recordings
 bun run eval --replay   # re-score saved recordings; no API calls (this runs in CI)
 ```
 
-There are 16 cases over 6 runs (3 sample logs × 2 deliverables):
+There are 20 cases over 7 runs (3 sample logs × 2 deliverables, plus the eval suite on the support-agent log):
 
 | Category | Cases | What passes |
 |---|---|---|
-| Schema validity | 6 | Every run produces output that parses and passes all checks within the retry cap |
+| Schema validity | 7 | Every run produces output that parses and passes all checks within the retry cap |
 | Traceability | 3 | Every claim cites at least one real evidence ID; no invented IDs in claims, conflicts or gaps |
 | Confidence fidelity | 3 | No wording above its evidence; the thin log produces only hypotheses; the strong log still commits (≥3 committed claims, ≥1 build item) so VERA isn't simply hedging everything |
 | Restraint | 2 | The thin log is flagged *Not enough evidence yet*, with ≥3 gaps, no build items and no more than 8 claims |
 | Conflict handling | 2 | Both conflicts in the mixed log are surfaced; nothing committed rests on contested evidence |
+| Eval suite | 3 | Every case is measurable with a scenario and grader; only well-evidenced cases block release (including the compliance rule); the conflict gets a case citing both sides that never blocks |
 
 The runner also reports how many runs passed on the first attempt, plus tokens and latency.
 
 **Current scores:** _not yet run against a live model; results go here after the first `bun run eval --record`._
 
 The checker and eval cases are also covered by unit tests (`bun test`): golden outputs pass, and a deliberately broken version of each one fails the check it targets.
+
+### Eval suite deliverable (in progress)
+
+VERA can also turn evidence into an **eval suite** for the team building an AI product's harness. Each claim is an eval case with a scenario, measurable pass criteria and a grader (`code`, `model` or `human`). Evidence confidence decides how much a case counts:
+
+| Evidence | Role | Counts as |
+|---|---|---|
+| High | Regression | Must pass; a failure blocks release |
+| Medium | Capability | Tracked against a threshold; doesn't block |
+| Low | Exploratory | A hypothesis test that decides whether to commit |
+
+Code enforces the same way as for other deliverables: real citations, no judgement words in pass criteria ("good", "appropriate", "correctly"…), no case in a higher role than its evidence allows, and a case citing both sides of every conflict. Approved cases export as plain JSON (`vera.eval_suite/1`, see `src/deliverables/export.ts`).
+
+In the UI each case shows its behaviour, then **Scenario** and **Pass when**, tagged with whether it blocks release and which grader checks it. A summary line counts blocking, tracked and exploratory cases. Reviewers can edit pass criteria; wording a harness can't check gets a warning (not a block), and is flagged as `criteria_warnings` in the export. **Export JSON** includes only cases in approved sections.
+
+The sample is a fictional insurer's AI support agent (`examples/logs/agent.json`). Until its eval cases pass on a live run, the eval suite and that sample are hidden from the public demo. Run the server with `VERA_PREVIEW=1` to see them, or use the CLI: `bun run vera generate deliverable --log examples/logs/agent.json --type eval_suite`.
 
 ## 6. Design decisions
 
@@ -137,6 +154,8 @@ bun run vera generate deliverable --log examples/logs/strong.json --type strateg
 | `timeout_ms` | `VERA_TIMEOUT_MS` | `120000` |
 | `max_retries` | `VERA_MAX_RETRIES` | `2` (3 attempts) |
 | `trace` | `VERA_TRACE` | `file` → `traces/YYYY-MM-DD.jsonl` (server uses `console`) |
+
+`VERA_PREVIEW=1` shows deliverables and samples that haven't passed a live eval run yet (currently the eval suite and the AI support-agent sample).
 
 Demo limits: `VERA_RATE_LIMIT` (live generations per IP per window, default 6), `VERA_RATE_WINDOW_MIN` (60) and `VERA_DAILY_CAP` (300).
 

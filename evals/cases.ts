@@ -3,7 +3,7 @@ import type { Claim, Deliverable } from "../src/deliverables/schema.ts";
 import type { DeliverableId } from "../src/deliverables/specs.ts";
 import type { EvidenceLog } from "../src/evidence/schema.ts";
 import type { EvidenceProfile } from "../src/evidence/validate.ts";
-import { checkLanguage, isAtMost } from "../src/confidence/rules.ts";
+import { checkLanguage, checkMeasurable, evalRoleFor, isAtMost } from "../src/confidence/rules.ts";
 
 // ─── Eval cases ──────────────────────────────────────────────────────────────
 //
@@ -12,7 +12,7 @@ import { checkLanguage, isAtMost } from "../src/confidence/rules.ts";
 // against the final, checked output AND independently of the checker where
 // possible, so a bug in the checker does not silently pass the evals.
 
-export type LogName = "strong" | "mixed" | "thin";
+export type LogName = "strong" | "mixed" | "thin" | "agent";
 export type RunKey = `${LogName}.${DeliverableId}`;
 
 export interface RunOutcome {
@@ -28,7 +28,7 @@ export interface RunOutcome {
 
 export interface EvalCase {
   id: string;
-  category: "schema" | "traceability" | "confidence" | "restraint" | "conflict";
+  category: "schema" | "traceability" | "confidence" | "restraint" | "conflict" | "eval_suite";
   description: string;
   runs: RunKey[];
   /** Return a list of failures; empty = pass. */
@@ -174,5 +174,54 @@ export const CASES: EvalCase[] = [
       claims(need(run))
         .filter((c) => c.contested && (c.confidence === "high" || c.action === "build"))
         .map((c) => `${c.id} commits on contested evidence: "${c.text}"`),
+  },
+
+  // ── Eval suite deliverable (CLI-only until these pass on a live run)
+  {
+    id: "schema.agent.eval_suite",
+    category: "schema",
+    description: "agent.eval_suite: valid output within the retry cap",
+    runs: ["agent.eval_suite"],
+    assert: (run) => (run.ok ? [] : [run.error ?? `${run.issues.length} check issue(s) after ${run.attempts} attempts`]),
+  },
+  {
+    id: "eval_suite.measurable",
+    category: "eval_suite",
+    description: "every case has a scenario, a grader and measurable pass criteria",
+    runs: ["agent.eval_suite"],
+    assert: (run) =>
+      claims(need(run)).flatMap((c) => [
+        ...(!c.scenario ? [`${c.id} has no scenario`] : []),
+        ...(!c.grader ? [`${c.id} has no grader`] : []),
+        ...checkMeasurable(c.pass_criteria ?? "").map((p) => `${c.id}: pass criteria ${p}`),
+      ]),
+  },
+  {
+    id: "eval_suite.blocking-is-evidenced",
+    category: "eval_suite",
+    description: "only high-confidence, uncontested cases block release; the compliance rule is one of them",
+    runs: ["agent.eval_suite"],
+    assert: (run) => {
+      const d = need(run);
+      const regression = d.sections.find((s) => s.id === "regression")?.claims ?? [];
+      const out = regression
+        .filter((c) => evalRoleFor(c.derived_confidence) !== "regression")
+        .map((c) => `${c.id} blocks release on ${c.derived_confidence} evidence`);
+      if (!regression.some((c) => c.evidence_ids.includes("EV-006"))) {
+        out.push("no blocking case rests on the compliance finding (EV-006)");
+      }
+      return out;
+    },
+  },
+  {
+    id: "eval_suite.conflict-case",
+    category: "eval_suite",
+    description: "the claims-autonomy conflict gets a case citing both sides, which never blocks",
+    runs: ["agent.eval_suite"],
+    assert: (run) => {
+      const both = claims(need(run)).filter((c) => c.evidence_ids.includes("EV-005") && c.evidence_ids.includes("EV-006"));
+      if (both.length === 0) return ["no case cites both EV-005 and EV-006"];
+      return both.filter((c) => c.id.startsWith("regression")).map((c) => `${c.id} blocks release on contested evidence`);
+    },
   },
 ];

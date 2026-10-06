@@ -1,0 +1,121 @@
+{
+  "schema_version": "1",
+  "client": {
+    "name": "Orrin Home Cover",
+    "industry": "Home insurance",
+    "description": "A mid-sized UK home insurer piloting an AI support agent that answers policy and claims questions in web chat before handing off to human handlers."
+  },
+  "engagement": {
+    "goal": "Define what the support agent must reliably do, what it should do, and what is still unproven, so the team can build an eval suite before widening the pilot.",
+    "timeline_weeks": 8,
+    "team_size": 3,
+    "constraints": [
+      "FCA Consumer Duty applies: customers must get accurate information and fair outcomes",
+      "Claim outcomes must be decided by a licensed human handler",
+      "The agent can only read policy documents and claim status; it cannot change records"
+    ]
+  },
+  "items": [
+    {
+      "id": "EV-001",
+      "source_type": "analytics",
+      "source": "Pilot chat logs, 6 weeks, 4,180 conversations",
+      "summary": "38% of conversations are claim-status checks. When the customer gives a policy number, the agent returns the correct status in 94% of checks (n=1,212, audited against the claims system).",
+      "confidence": "high",
+      "date": "2026-08-30",
+      "tags": ["claim-status", "accuracy", "baseline"]
+    },
+    {
+      "id": "EV-002",
+      "source_type": "support_tickets",
+      "source": "Incident review INC-0412 and INC-0419",
+      "summary": "The agent twice quoted a £250 flood excess from a superseded policy wording; the current excess is £1,000. Root cause: retrieval returned an archived document.",
+      "confidence": "high",
+      "date": "2026-09-04",
+      "tags": ["accuracy", "retrieval", "policy-terms", "incident"]
+    },
+    {
+      "id": "EV-003",
+      "source_type": "analytics",
+      "source": "Complaints data joined to chat logs",
+      "summary": "Conversations handed to a human within 2 minutes of the customer asking had a 1.1% complaint rate; those handed off after 2 minutes had 4.8% (n=640 handoffs).",
+      "confidence": "high",
+      "date": "2026-09-02",
+      "tags": ["handoff", "complaints"]
+    },
+    {
+      "id": "EV-004",
+      "source_type": "technical_review",
+      "source": "Platform team review of the agent's tools",
+      "summary": "get_claim_status requires both policy number and date of birth. Policy documents are retrievable by policy number and effective date; archived wordings are in the same index.",
+      "confidence": "high",
+      "date": "2026-08-21",
+      "tags": ["tools", "retrieval", "identity-check"]
+    },
+    {
+      "id": "EV-005",
+      "source_type": "stakeholder",
+      "source": "Head of Claims, steering meeting",
+      "summary": "Head of Claims believes the agent could approve small claims under £250 on its own, cutting handling cost.",
+      "confidence": "low",
+      "date": "2026-09-10",
+      "tags": ["autonomy", "claims-decisions"],
+      "conflicts_with": ["EV-006"]
+    },
+    {
+      "id": "EV-006",
+      "source_type": "stakeholder",
+      "source": "Compliance review with the firm's regulatory lead",
+      "summary": "Compliance's reading of the firm's FCA permissions is that a licensed human must decide every claim outcome, regardless of value. The agent may explain process but not approve or decline.",
+      "confidence": "high",
+      "date": "2026-09-12",
+      "tags": ["autonomy", "claims-decisions", "compliance"],
+      "conflicts_with": ["EV-005"]
+    },
+    {
+      "id": "EV-007",
+      "source_type": "experiment",
+      "source": "Offline comparison of two candidate models on 120 historical chats",
+      "summary": "Model B stated a policy term that is not in the wording in 3 of 120 chats; model A did in 9 of 120. Model B's median response time was 1.4s slower.",
+      "confidence": "medium",
+      "date": "2026-09-15",
+      "tags": ["model-choice", "accuracy", "latency"]
+    },
+    {
+      "id": "EV-008",
+      "source_type": "support_tickets",
+      "source": "Quality review of 30 sampled bereavement and hardship conversations",
+      "summary": "In 4 of 30, reviewers flagged the agent's tone as abrupt for a customer in distress; in all 4 the agent did not offer a human handoff.",
+      "confidence": "medium",
+      "date": "2026-09-18",
+      "tags": ["vulnerable-customers", "tone", "handoff"]
+    },
+    {
+      "id": "EV-009",
+      "source_type": "usability_test",
+      "source": "Moderated sessions with 8 policyholders",
+      "summary": "6 of 8 asked whether they were talking to a person; 5 said they would trust answers more if told up front it was an AI with a human available.",
+      "confidence": "medium",
+      "date": "2026-08-27",
+      "tags": ["disclosure", "trust"]
+    },
+    {
+      "id": "EV-010",
+      "source_type": "survey",
+      "source": "Post-chat survey, 40 responses",
+      "summary": "Respondents who rated the chat said they prefer it to phoning; response rate was under 2% and skewed to resolved conversations.",
+      "confidence": "low",
+      "date": "2026-09-05",
+      "tags": ["satisfaction", "channel-preference"]
+    },
+    {
+      "id": "EV-011",
+      "source_type": "anecdote",
+      "source": "Contact-centre team lead",
+      "summary": "A team lead has seen customers try to talk the agent into promising discounts or cover changes.",
+      "confidence": "low",
+      "date": "2026-09-08",
+      "tags": ["adversarial", "commitments"]
+    }
+  ]
+}

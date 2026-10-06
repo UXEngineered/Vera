@@ -34,6 +34,24 @@ describe("sample logs", () => {
   });
 });
 
+describe("contested evidence", () => {
+  test("a weaker item cannot demote a stronger one", () => {
+    const r = parseEvidenceLog(load("mixed"));
+    if (!r.ok) throw new Error("invalid");
+    // EV-001 (medium) vs EV-002 (high): only EV-001 is contested.
+    // EV-004 (medium) vs EV-005 (low): only EV-005 is contested.
+    expect(profileEvidence(r.log).contested).toEqual(["EV-001", "EV-005"]);
+  });
+
+  test("equally strong items contest each other", () => {
+    const log = JSON.parse(load("strong"));
+    log.items[0].conflicts_with = ["EV-002"];
+    const r = validateEvidenceLog(log);
+    if (!r.ok) throw new Error("invalid");
+    expect(profileEvidence(r.log).contested).toEqual(["EV-001", "EV-002"]);
+  });
+});
+
 describe("bad input fails clearly", () => {
   const base = () => JSON.parse(load("thin"));
 

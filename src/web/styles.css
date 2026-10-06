@@ -308,3 +308,30 @@ button.claim:hover { border-color: var(--line-soft); }
 .conflict-sides { display: grid; gap: 0; margin-bottom: 14px; }
 .conflict-sides .ev { padding: 8px 0; }
 .conflict-sides .ev:last-child { border-bottom: 0; }
+
+/* ─── Eval suite ──────────────────────────────────────────────────────────── */
+.chip-preview { color: var(--accent); }
+.section-purpose { margin: 6px 0 0; font: 12.5px var(--mono); color: var(--dim); }
+
+.suite-summary {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 28px;
+  padding: 18px 0 6px; font: 12px var(--mono); text-transform: uppercase; letter-spacing: var(--track); color: var(--muted);
+}
+.suite-count strong { font: 600 26px var(--sans); letter-spacing: -0.01em; color: var(--ink); margin-right: 8px; }
+.suite-count-exploratory strong { color: var(--accent); }
+.suite-graders { flex-basis: 100%; font-size: 11.5px; color: var(--dim); text-transform: none; letter-spacing: 0.04em; }
+
+.blocking-tag, .grader-tag {
+  font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: var(--track);
+}
+.blocking-tag { color: var(--ink); }
+.grader-tag { color: var(--dim); }
+
+.case-fields { display: grid; gap: 2px; margin-top: 4px; }
+.case-label {
+  display: block; margin-top: 8px; font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: var(--track); color: var(--dim);
+}
+.case-value { font: 13.5px/1.55 var(--mono); color: var(--muted); }
+.claim-high .case-value { color: var(--ink-2); }
+
+.claim.is-editing .criteria-input { font: 13.5px/1.5 var(--mono); }
