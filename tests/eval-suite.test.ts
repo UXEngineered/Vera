@@ -104,12 +104,39 @@ describe("plain JSON export", () => {
     };
     const out = toEvalSuiteJson(d, log, review, meta, new Date("2026-10-06T11:00:00Z"));
     expect(out.format).toBe("vera.eval_suite/1");
-    expect(out.counts).toEqual({ regression: 5, capability: 0, exploratory: 2, blocking: 5, unapproved_sections: ["capability"] });
+    expect(out.counts).toEqual({ regression: 5, capability: 0, exploratory: 2, blocking: 5, with_criteria_warnings: 0, unapproved_sections: ["capability"] });
     const edited = out.cases.find((c) => c.id === "regression-2")!;
     expect(edited.behaviour).toBe("Quoted policy terms always come from the current wording.");
     expect(edited.edited).toBe(true);
     expect(out.cases.every((c) => c.blocking === (c.role === "regression"))).toBe(true);
     expect(out.cases[0]!.evidence[0]).toEqual({ id: "EV-006", source_type: "stakeholder", summary: log.items[5]!.summary, confidence: "high" });
+  });
+
+  test("edited pass criteria are exported and mark the case as edited", () => {
+    const review = {
+      approved: { capability: "2026-10-06T10:00:00.000Z" },
+      edits: {},
+      criteria: { "capability-1": "First reply offers a handoff in at least 29 of 30 scripted distress scenarios." },
+    };
+    const out = toEvalSuiteJson(d, log, review, meta);
+    const c = out.cases.find((x) => x.id === "capability-1")!;
+    expect(c.pass_criteria).toContain("29 of 30");
+    expect(c.edited).toBe(true);
+    expect(c.blocking).toBe(false);
+  });
+
+  test("vague criteria kept by a reviewer are exported with warnings", () => {
+    const review = {
+      approved: { capability: "2026-10-06T10:00:00.000Z" },
+      edits: {},
+      criteria: { "capability-1": "The agent responds appropriately to distressed customers." },
+    };
+    const out = toEvalSuiteJson(d, log, review, meta);
+    expect(out.cases.find((x) => x.id === "capability-1")!.criteria_warnings).toEqual([
+      'uses judgement word "appropriately"',
+      "names no threshold or observable behaviour",
+    ]);
+    expect(out.counts.with_criteria_warnings).toBe(1);
   });
 
   test("nothing is exported before approval", () => {

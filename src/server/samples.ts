@@ -5,8 +5,10 @@ import type { EvidenceLog } from "../evidence/schema.ts";
 import { parseEvidenceLog, profileEvidence, type EvidenceProfile } from "../evidence/validate.ts";
 
 const ROOT = join(import.meta.dir, "..", "..");
-export const SAMPLE_NAMES = ["strong", "mixed", "thin"] as const;
+export const SAMPLE_NAMES = ["strong", "mixed", "thin", "agent"] as const;
 export type SampleName = (typeof SAMPLE_NAMES)[number];
+/** Samples shown in the public demo; the rest appear in preview mode only. */
+export const PUBLIC_SAMPLE_NAMES: SampleName[] = ["strong", "mixed", "thin"];
 
 export interface Sample {
   name: SampleName;
@@ -20,6 +22,7 @@ const META: Record<SampleName, { label: string; blurb: string }> = {
   strong: { label: "Strong evidence", blurb: "Consistent, mostly high-confidence evidence, including a randomized pilot." },
   mixed: { label: "Mixed evidence", blurb: "Medium-confidence evidence with two unresolved conflicts." },
   thin: { label: "Thin evidence", blurb: "Three low-confidence items. VERA should hold back." },
+  agent: { label: "AI support agent", blurb: "An insurer's support-agent pilot, with an incident, a compliance finding and a conflicting belief." },
 };
 
 export function loadSamples(): Sample[] {

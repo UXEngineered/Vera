@@ -103,7 +103,9 @@ VERA can also turn evidence into an **eval suite** for the team building an AI p
 
 Code enforces the same way as for other deliverables: real citations, no judgement words in pass criteria ("good", "appropriate", "correctly"…), no case in a higher role than its evidence allows, and a case citing both sides of every conflict. Approved cases export as plain JSON (`vera.eval_suite/1`, see `src/deliverables/export.ts`).
 
-The sample is a fictional insurer's AI support agent (`examples/logs/agent.json`). The eval suite is CLI-only (`bun run vera generate deliverable --log examples/logs/agent.json --type eval_suite`) and joins the public demo once its eval cases pass on a live run.
+In the UI each case shows its behaviour, then **Scenario** and **Pass when**, tagged with whether it blocks release and which grader checks it. A summary line counts blocking, tracked and exploratory cases. Reviewers can edit pass criteria; wording a harness can't check gets a warning (not a block), and is flagged as `criteria_warnings` in the export. **Export JSON** includes only cases in approved sections.
+
+The sample is a fictional insurer's AI support agent (`examples/logs/agent.json`). Until its eval cases pass on a live run, the eval suite and that sample are hidden from the public demo. Run the server with `VERA_PREVIEW=1` to see them, or use the CLI: `bun run vera generate deliverable --log examples/logs/agent.json --type eval_suite`.
 
 ## 6. Design decisions
 
@@ -152,6 +154,8 @@ bun run vera generate deliverable --log examples/logs/strong.json --type strateg
 | `timeout_ms` | `VERA_TIMEOUT_MS` | `120000` |
 | `max_retries` | `VERA_MAX_RETRIES` | `2` (3 attempts) |
 | `trace` | `VERA_TRACE` | `file` → `traces/YYYY-MM-DD.jsonl` (server uses `console`) |
+
+`VERA_PREVIEW=1` shows deliverables and samples that haven't passed a live eval run yet (currently the eval suite and the AI support-agent sample).
 
 Demo limits: `VERA_RATE_LIMIT` (live generations per IP per window, default 6), `VERA_RATE_WINDOW_MIN` (60) and `VERA_DAILY_CAP` (300).
 

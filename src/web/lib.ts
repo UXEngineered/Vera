@@ -7,17 +7,20 @@ import { CONFIDENCE_RULES } from "../confidence/rules.ts";
 export type { CheckIssue, Claim, Deliverable, RawSection, EvidenceItem, EvidenceLog, EvidenceProfile };
 
 export interface SampleSummary {
-  name: "strong" | "mixed" | "thin";
+  name: "strong" | "mixed" | "thin" | "agent";
   label: string;
   blurb: string;
   log: EvidenceLog;
   profile: EvidenceProfile;
 }
 
+export type DeliverableId = "strategy" | "roadmap" | "eval_suite";
+
 export interface ServerConfig {
   live: boolean;
+  preview: boolean;
   model: string | null;
-  deliverables: { id: "strategy" | "roadmap"; title: string }[];
+  deliverables: { id: DeliverableId; title: string }[];
   recorded: Record<string, string[]>;
 }
 
@@ -98,6 +101,7 @@ export const READINESS: Record<Deliverable["readiness"], { label: string; detail
 export interface ReviewState {
   approved: Record<string, string>; // section id → ISO time
   edits: Record<string, string>; // claim id → edited text
+  criteria: Record<string, string>; // claim id → edited pass criteria (eval suites)
 }
 
 export function toMarkdown(d: Deliverable, title: string, client: string, review: ReviewState, model: string): string {

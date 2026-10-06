@@ -1,4 +1,4 @@
-import { EVAL_ROLES } from "../confidence/rules.ts";
+import { checkMeasurable, EVAL_ROLES } from "../confidence/rules.ts";
 import type { EvidenceLog } from "../evidence/schema.ts";
 import type { Deliverable } from "./schema.ts";
 
@@ -15,6 +15,8 @@ export interface ReviewInput {
   approved: Record<string, string>;
   /** claim id → edited text */
   edits: Record<string, string>;
+  /** claim id → edited pass criteria (eval suites) */
+  criteria?: Record<string, string>;
 }
 
 export interface EvalCaseExport {
@@ -24,6 +26,8 @@ export interface EvalCaseExport {
   behaviour: string;
   scenario: string;
   pass_criteria: string;
+  /** Non-empty only when a reviewer kept pass criteria a harness can't check reliably. */
+  criteria_warnings: string[];
   grader: "code" | "model" | "human";
   confidence: "high" | "medium" | "low";
   contested: boolean;
@@ -38,7 +42,14 @@ export interface EvalSuiteExport {
   generated: { model: string; prompt_versions: string[]; run_id: string };
   exported_at: string;
   readiness: Deliverable["readiness"];
-  counts: { regression: number; capability: number; exploratory: number; blocking: number; unapproved_sections: string[] };
+  counts: {
+    regression: number;
+    capability: number;
+    exploratory: number;
+    blocking: number;
+    with_criteria_warnings: number;
+    unapproved_sections: string[];
+  };
   cases: EvalCaseExport[];
   conflicts: Deliverable["conflicts"];
   gaps: Deliverable["gaps"];
@@ -59,6 +70,7 @@ export function toEvalSuiteJson(
     .flatMap((s) =>
       s.claims.map((c) => {
         const role = s.id as EvalCaseExport["role"];
+        const pass_criteria = review.criteria?.[c.id] ?? c.pass_criteria!;
         return {
           id: c.id,
           role,
@@ -66,11 +78,12 @@ export function toEvalSuiteJson(
           blocking: role === EVAL_ROLES.high.role,
           behaviour: review.edits[c.id] ?? c.text,
           scenario: c.scenario!,
-          pass_criteria: c.pass_criteria!,
+          pass_criteria,
+          criteria_warnings: checkMeasurable(pass_criteria),
           grader: c.grader!,
           confidence: c.confidence,
           contested: c.contested,
-          edited: c.id in review.edits,
+          edited: c.id in review.edits || c.id in (review.criteria ?? {}),
           approved_at: review.approved[s.id]!,
           evidence: c.evidence_ids.map((id) => {
             const e = byId.get(id)!;
@@ -92,6 +105,7 @@ export function toEvalSuiteJson(
       capability: count("capability"),
       exploratory: count("exploratory"),
       blocking: cases.filter((c) => c.blocking).length,
+      with_criteria_warnings: cases.filter((c) => c.criteria_warnings.length > 0).length,
       unapproved_sections: d.sections.filter((s) => !review.approved[s.id]).map((s) => s.id),
     },
     cases,

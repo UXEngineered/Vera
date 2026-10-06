@@ -5,13 +5,17 @@ import { validateEvidenceLog } from "../evidence/validate.ts";
 import { createProvider, createTraceSink, loadLlmConfig, ReplayProvider, type LlmProvider } from "../llm/index.ts";
 import { generateDeliverable, type PipelineEvent } from "../pipeline/generate.ts";
 import { RateLimiter } from "./rate-limit.ts";
-import { loadRecording, loadSamples, SAMPLE_NAMES, type SampleName } from "./samples.ts";
+import { loadRecording, loadSamples, PUBLIC_SAMPLE_NAMES, SAMPLE_NAMES, type SampleName } from "./samples.ts";
 
 const env = (name: string, fallback: number) => Number(process.env[name] ?? fallback);
 
 const config = loadLlmConfig();
 const trace = createTraceSink({ ...config, trace: process.env.VERA_TRACE ? config.trace : "console" });
-const samples = loadSamples();
+// Preview mode exposes deliverables and samples that haven't passed a live eval run yet.
+const preview = process.env.VERA_PREVIEW === "1";
+const availableDeliverables = preview ? Object.values(DELIVERABLES) : PUBLIC_DELIVERABLES;
+const availableSamples: SampleName[] = preview ? [...SAMPLE_NAMES] : PUBLIC_SAMPLE_NAMES;
+const samples = loadSamples().filter((s) => availableSamples.includes(s.name));
 const liveAvailable = Boolean(process.env.ANTHROPIC_API_KEY);
 const limiter = new RateLimiter(env("VERA_RATE_LIMIT", 6), env("VERA_RATE_WINDOW_MIN", 60) * 60_000, env("VERA_DAILY_CAP", 300));
 const MAX_LOG_BYTES = 64 * 1024;
@@ -39,9 +43,9 @@ async function handleGenerate(req: Request, server: Bun.Server<unknown>): Promis
   } catch {
     return json({ error: "Request body must be JSON." }, 400);
   }
-  // Deliverables that haven't passed a live eval run yet are CLI-only.
-  if (!body.deliverable || !isDeliverableId(body.deliverable) || !DELIVERABLES[body.deliverable].public) {
-    return json({ error: `deliverable must be one of: ${PUBLIC_DELIVERABLES.map((d) => d.id).join(", ")}` }, 400);
+  // Deliverables that haven't passed a live eval run yet are CLI-only unless preview mode is on.
+  if (!body.deliverable || !isDeliverableId(body.deliverable) || !availableDeliverables.some((d) => d.id === body.deliverable)) {
+    return json({ error: `deliverable must be one of: ${availableDeliverables.map((d) => d.id).join(", ")}` }, 400);
   }
   const spec = DELIVERABLES[body.deliverable];
 
@@ -49,7 +53,7 @@ async function handleGenerate(req: Request, server: Bun.Server<unknown>): Promis
   let log;
   let sampleName: SampleName | undefined;
   if (body.sample) {
-    if (!SAMPLE_NAMES.includes(body.sample as SampleName)) return json({ error: "Unknown sample." }, 400);
+    if (!availableSamples.includes(body.sample as SampleName)) return json({ error: "Unknown sample." }, 400);
     sampleName = body.sample as SampleName;
     log = samples.find((s) => s.name === sampleName)!.log;
   } else {
@@ -126,9 +130,10 @@ const server = Bun.serve({
       json({
         live: liveAvailable,
         model: liveAvailable ? `${config.provider}/${config.model}` : null,
-        deliverables: PUBLIC_DELIVERABLES.map((d) => ({ id: d.id, title: d.title })),
+        preview,
+        deliverables: availableDeliverables.map((d) => ({ id: d.id, title: d.title })),
         recorded: Object.fromEntries(
-          SAMPLE_NAMES.map((n) => [n, PUBLIC_DELIVERABLES.map((d) => d.id).filter((d) => loadRecording(n, d) !== null)]),
+          availableSamples.map((n) => [n, availableDeliverables.map((d) => d.id).filter((d) => loadRecording(n, d) !== null)]),
         ),
       }),
     "/api/samples": () =>
@@ -138,4 +143,6 @@ const server = Bun.serve({
   fetch: () => json({ error: "Not found" }, 404),
 });
 
-console.log(`VERA listening on ${server.url} · ${liveAvailable ? `live (${config.model})` : "recorded runs only (no ANTHROPIC_API_KEY)"}`);
+console.log(
+  `VERA listening on ${server.url} · ${liveAvailable ? `live (${config.model})` : "recorded runs only (no ANTHROPIC_API_KEY)"}${preview ? " · preview" : ""}`,
+);
