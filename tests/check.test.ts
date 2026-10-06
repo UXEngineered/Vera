@@ -33,8 +33,10 @@ describe("golden outputs pass every check", () => {
     const claim = r.deliverable!.sections[1]!.claims[0]!;
     expect(claim.id).toBe("opportunity-1");
     expect(claim.derived_confidence).toBe("medium");
-    const contested = r.deliverable!.sections[0]!.claims[1]!;
-    expect(contested.contested).toBe(true);
+    // EV-004 conflicts only with weaker evidence (EV-005), so it is not contested.
+    expect(r.deliverable!.sections[0]!.claims[1]!.contested).toBe(false);
+    // EV-001 conflicts with stronger evidence (EV-002), so it is.
+    expect(r.deliverable!.sections[2]!.claims[1]!.contested).toBe(true);
   });
 
   test("tolerates code fences around the JSON", () => {

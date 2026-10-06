@@ -75,8 +75,10 @@ export function isAtMost(level: Confidence, cap: Confidence): boolean {
 }
 
 /**
- * Evidence that is contested by another item in the log can support at most
- * a "likely" claim, whatever its own confidence, until the conflict is resolved.
+ * Evidence contested by an item at least as strong as itself can support at
+ * most a "likely" claim until the conflict is resolved. A weaker item cannot
+ * demote a stronger one (a low-confidence opinion does not cap a high-confidence
+ * finding), but every conflict is still surfaced.
  */
 export const CONTESTED_CAP: Confidence = "medium";
 
@@ -138,6 +140,6 @@ export function renderRulesForPrompt(): string {
   return [
     ...lines,
     `- A claim's confidence is the LOWEST confidence among the evidence it cites.`,
-    `- If any cited evidence is contested (has a conflict in the log), the claim is at most ${CONTESTED_CAP.toUpperCase()}.`,
+    `- If any cited evidence is contested (listed as contested in the evidence profile), the claim is at most ${CONTESTED_CAP.toUpperCase()}.`,
   ].join("\n");
 }

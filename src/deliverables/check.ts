@@ -63,7 +63,7 @@ export function checkDeliverable(
   const raw: RawDeliverable = parsed.data;
 
   const byId = new Map(log.items.map((item) => [item.id, item]));
-  const contested = new Set(profile.conflictPairs.flat());
+  const contested = new Set(profile.contested);
   const knownId = (id: string) => byId.has(id);
 
   // 2. Structure: exactly the spec's sections, in order

@@ -57,7 +57,7 @@ Each evidence item has a confidence of `high`, `medium` or `low`. VERA turns tha
 The model doesn't get the final say. After generation, code:
 
 1. **Derives each claim's confidence** from the weakest evidence it cites. A claim resting on one high and one low item is low.
-2. **Caps contested evidence.** If a cited item conflicts with another item in the log, the claim is at most *Likely* until the conflict is resolved.
+2. **Caps contested evidence.** If a cited item conflicts with another item at least as strong as itself, the claim is at most *Likely* until the conflict is resolved. A weaker item can't demote a stronger one: one stakeholder's opinion doesn't cap a compliance finding. Every conflict is still surfaced.
 3. **Rejects claims labelled above their evidence**, and checks the wording against the table.
 4. **Rejects low-confidence roadmap items marked as `build`.** They must be `validate` or `investigate`.
 5. **Caps overall readiness.** A log with fewer than 5 items or no high-confidence evidence can only produce *Not enough evidence yet*, with at least 3 gaps.

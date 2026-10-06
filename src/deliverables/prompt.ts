@@ -35,6 +35,7 @@ export function buildPrompt(spec: DeliverableSpec, log: EvidenceLog, profile: Ev
     `## Evidence profile (computed by VERA)`,
     `- Items: ${profile.total} (high ${profile.byConfidence.high}, medium ${profile.byConfidence.medium}, low ${profile.byConfidence.low})`,
     `- Conflicts to surface: ${conflicts}`,
+    `- Contested (claims citing these are at most medium): ${profile.contested.length ? profile.contested.join(", ") : "none"}`,
     `- Maximum readiness: ${profile.readiness}${profile.reasons.length ? ` (${profile.reasons.join("; ")})` : ""}`,
     ``,
     `## Evidence log`,

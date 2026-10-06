@@ -298,7 +298,7 @@ export function App() {
             <EvidenceList
               log={previewLog}
               highlight={new Set(claim?.evidence_ids ?? [])}
-              conflicted={new Set((run?.profile ?? (source.kind === "sample" ? sample?.profile : custom?.ok ? custom.profile : undefined))?.conflictPairs.flat() ?? [])}
+              conflicted={new Set((run?.profile ?? (source.kind === "sample" ? sample?.profile : custom?.ok ? custom.profile : undefined))?.contested ?? [])}
             />
           )}
         </aside>
