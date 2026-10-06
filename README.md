@@ -1,158 +1,169 @@
-# Vera
+# VERA
 
 **Validated Evidence → Ready Artifacts**
 
-Vera is a CLI-driven evidence engine that turns structured observations into traceable, honest artifacts. Every claim in a generated document links back to its source evidence. Where evidence is missing, Vera says so.
+## 1. What VERA does
 
-## What it does
+VERA reads a structured evidence log from a discovery engagement and drafts a **product strategy** or **roadmap** from it. Every claim cites the evidence IDs it rests on. The confidence of that evidence carries through to the wording: strong evidence produces committed statements, medium evidence produces hedged ones, and weak evidence produces hypotheses to test. When the evidence is thin, VERA holds back and says what's missing instead of writing a confident plan. The output is a proposal: a person traces, edits and approves each section, and nothing is final until they do.
 
-Vera maintains a local evidence store — a structured graph of observations, risks, assumptions, capabilities, and test slices. When you generate artifacts (strategy docs, roadmaps, scope checks), the LLM is constrained by what the evidence actually supports. The result is documents that reflect reality, not aspiration.
+## 2. Try it
 
+**Live demo:** _link goes here after deploy_
+
+<!-- Screenshot / GIF: strong log → trace a claim → thin log restraint → approve -->
+
+Pick one of three sample logs (no setup), generate, then click any claim to see the evidence behind it. Start with **Strong evidence**, then switch to **Thin evidence** to watch VERA hold back.
+
+| Sample | Client (fictional) | What it tests |
+|---|---|---|
+| Strong | Tidewell Physio, a 14-clinic physio network | Consistent, mostly high-confidence evidence including a randomized pilot. VERA should commit. |
+| Mixed | Fernhill Market, a regional grocer | Medium-confidence evidence with two conflicts. VERA should surface them, not pick a side. |
+| Thin | Quillmark Legal, a boutique law firm | Three low-confidence items. VERA should produce hypotheses and gaps, not a plan. |
+
+## 3. Architecture
+
+```mermaid
+flowchart LR
+    A[Evidence log<br/>JSON] --> B[Validate<br/>strict schema]
+    B -->|invalid| X[Clear error,<br/>per item and field]
+    B --> C[Profile<br/>max readiness, conflicts]
+    C --> D[Generate<br/>versioned prompt → model]
+    D --> E[Check output<br/>schema · citations · confidence<br/>· conflicts · restraint]
+    E -->|fails| R[Retry with the failures<br/>max 3 attempts]
+    R --> D
+    E -->|passes| F[Trust UI<br/>trace · gaps · conflicts<br/>edit · approve]
 ```
-Evidence → Risks → Assumptions → Test Slices → Decisions → Artifacts
-```
 
-A continuous monitor detects gaps, drift (work misaligned with top risks), staleness, and state inconsistencies. Vera will not let a capability reach "commitment" with untested assumptions.
+| Stage | Where | Notes |
+|---|---|---|
+| Evidence schema + validation | `src/evidence/` | Strict Zod schema; unknown keys, duplicate IDs and dangling conflict references are rejected |
+| Confidence rules | `src/confidence/rules.ts` | The one mapping from confidence to language. Used by the prompt, the checker, the evals and the UI |
+| Prompts | `prompts/*.v1.md` | Versioned files; the version is logged with every model call |
+| Model access | `src/llm/` | Thin provider interface. Anthropic by default; swap by config. Max tokens and timeout per call; every call is traced |
+| Generate → check → retry | `src/pipeline/`, `src/deliverables/check.ts` | Output checks are code, not prompt instructions |
+| Demo server + UI | `src/server/`, `src/web/` | Bun server, SSE streaming, React UI. API key stays server-side; per-IP and daily rate limits |
+| Evals | `evals/` | 16 cases across 6 runs, one command |
 
-## Architecture
+## 4. How confidence propagation works
 
-```
-src/
-├── cli/           Command handlers (init, add, generate, watch, import, ...)
-├── generator/     LLM-powered artifact generation with structured prompts
-├── monitor/       Gap detection, drift analysis, staleness tracking
-├── prompts/       System prompts for each artifact type
-├── schema/        Zod schemas for the full data model
-├── stacks/        Sync layer — pushes entities to Stacks with lineage
-├── store/         JSON file-backed evidence store
-├── communication/ Slack notifications
-└── config.ts      Configuration resolution
-```
+Each evidence item has a confidence of `high`, `medium` or `low`. VERA turns that into language with one table:
 
-### Stacks Integration
+| Evidence | Label in the UI | Wording | Committed words (*will, must, confirms, proven…*) |
+|---|---|---|---|
+| High | **Committed** | Stated directly | Allowed |
+| Medium | **Likely** | Must include a hedge (*likely, suggests, may…*) | Not allowed |
+| Low | **Hypothesis to test** | Must be framed as a hypothesis or test | Not allowed |
 
-When configured, Vera syncs every write to [Stacks](https://github.com/UXEngineered/fieldbook) — the human governance interface for agent-generated work. Evidence becomes sources, risks and assumptions become syntheses, and generated artifacts land with full upstream lineage so humans can trace every claim back to its origin.
+The model doesn't get the final say. After generation, code:
 
-## Quick Start
+1. **Derives each claim's confidence** from the weakest evidence it cites. A claim resting on one high and one low item is low.
+2. **Caps contested evidence.** If a cited item conflicts with another item in the log, the claim is at most *Likely* until the conflict is resolved.
+3. **Rejects claims labelled above their evidence**, and checks the wording against the table.
+4. **Rejects low-confidence roadmap items marked as `build`.** They must be `validate` or `investigate`.
+5. **Caps overall readiness.** A log with fewer than 5 items or no high-confidence evidence can only produce *Not enough evidence yet*, with at least 3 gaps.
+
+Any failure goes back to the model with the specific issues, up to 3 attempts. If it still fails, VERA shows the failures rather than the output.
+
+In the UI, confidence is visible in the form of each claim, not only its colour: a solid rule for *Committed*, dashed for *Likely*, and dotted on a tinted background for *Hypothesis to test*. If a reviewer edits a claim into wording stronger than its evidence, VERA warns them but doesn't block the edit, because the person decides.
+
+## 5. Evals
 
 ```bash
-# Install dependencies
+bun run eval            # live if ANTHROPIC_API_KEY is set, otherwise replays recordings
+bun run eval --record   # live run, saving raw model outputs to evals/recordings/
+bun run eval --replay   # re-score saved recordings; no API calls (this runs in CI)
+```
+
+There are 16 cases over 6 runs (3 sample logs × 2 deliverables):
+
+| Category | Cases | What passes |
+|---|---|---|
+| Schema validity | 6 | Every run produces output that parses and passes all checks within the retry cap |
+| Traceability | 3 | Every claim cites at least one real evidence ID; no invented IDs in claims, conflicts or gaps |
+| Confidence fidelity | 3 | No wording above its evidence; the thin log produces only hypotheses; the strong log still commits (≥3 committed claims, ≥1 build item) so VERA isn't simply hedging everything |
+| Restraint | 2 | The thin log is flagged *Not enough evidence yet*, with ≥3 gaps, no build items and no more than 8 claims |
+| Conflict handling | 2 | Both conflicts in the mixed log are surfaced; nothing committed rests on contested evidence |
+
+The runner also reports how many runs passed on the first attempt, plus tokens and latency.
+
+**Current scores:** _not yet run against a live model; results go here after the first `bun run eval --record`._
+
+The checker and eval cases are also covered by unit tests (`bun test`): golden outputs pass, and a deliberately broken version of each one fails the check it targets.
+
+## 6. Design decisions
+
+**Why traceability.** A discovery deliverable is only as useful as the reader's ability to check it. Citing evidence IDs turns "trust the AI" into "check claim 3 against EV-007". It also gives VERA something it can verify in code: every ID must exist, so invented citations are caught every time.
+
+**Why confidence lives in the language.** Readers skim. If a hypothesis reads like a commitment, the hedge in a footnote won't save anyone. Putting confidence into the wording, and into the visual form of each claim, means the uncertainty survives copy-paste into a slide.
+
+**Why rules in code, not just in the prompt.** Prompts are requests; models drift between versions and providers. VERA asks the model to follow the confidence rules, then enforces them in code. The model can be more cautious than the evidence but never less, and that holds whichever model is plugged in.
+
+**Why restraint on thin evidence.** The most expensive output a discovery tool can produce is a confident plan built on one stakeholder's opinion. VERA treats *Not enough evidence yet, and here's what would change that* as a good outcome. The thin sample exists to prove it.
+
+**Why conflicts are surfaced, not resolved.** When a survey and the usage data disagree, which one wins is a judgment call for the team. VERA's job is to make sure nobody misses the disagreement and to suggest how to settle it.
+
+**Why human approval.** VERA proposes; a person decides. Sections stay *Draft* until someone approves them, edits are marked, and the document only reads *Final* when every section has been approved. Unchecked streaming output is labelled as such and never presented as finished.
+
+## 7. Run locally
+
+Requires [Bun](https://bun.sh) 1.3+.
+
+```bash
 bun install
-
-# Initialize for an engagement
-bun run vera init --engagement "Project Name" --weeks 8 --team 3
-
-# Add evidence
-bun run vera add evidence \
-  --type technical_constraint \
-  --source "Architecture Review" \
-  --domain feasibility \
-  --content "System requires X because Y"
-
-# Add structured entities
-bun run vera add capability --name "Feature X" --description "..." --state concept --confidence low
-bun run vera add risk --capability CAP-001 --statement "If X then Y because Z" --domain feasibility --impact critical --uncertainty high
-bun run vera add assumption --risk RISK-001 --capability CAP-001 --statement "..." --domain feasibility --success "..." --failure "..." --consequence "..."
-
-# Check health
-bun run vera status
-bun run vera monitor
-
-# Generate artifacts
-bun run vera generate artifacts
-bun run vera generate artifact --type scope_check
-
-# Generate candidate assumptions for a risk
-bun run vera generate assumptions --risk RISK-001
-
-# Watch mode — auto-monitor and regenerate on changes
-bun run vera watch
-
-# Import from CSV
-bun run vera import --file data.csv --type evidence
+cp .env.example .env          # add ANTHROPIC_API_KEY for live generation
+bun run dev:web               # http://localhost:3000
 ```
 
-## Commands
+Without a key the server still runs, but it can only replay recorded runs (`evals/recordings/`).
 
-| Command | Description |
-|---|---|
-| `vera init` | Initialize evidence store for an engagement |
-| `vera add <entity>` | Add evidence, risk, assumption, capability, slice, or decision |
-| `vera status` | Evidence store health summary |
-| `vera monitor` | Detect gaps, drift, staleness, state inconsistencies |
-| `vera generate artifacts` | Generate all enabled artifacts |
-| `vera generate artifact --type <t>` | Generate a specific artifact |
-| `vera generate assumptions --risk <id>` | Generate candidate assumptions for a risk |
-| `vera approve assumption --id <id>` | Promote a candidate assumption |
-| `vera watch` | Auto-import inbox, monitor, and regenerate on changes |
-| `vera import --file <csv> --type <t>` | Bulk import from CSV |
+Other commands:
 
-## Data Model
-
-Vera tracks five risk domains across every entity:
-
-| Domain | What it covers |
-|---|---|
-| **Value** | Will anyone want this? |
-| **Usability** | Can people use it effectively? |
-| **Feasibility** | Can we build it? |
-| **Viability** | Can the business sustain it? |
-| **Operational** | Can we run it in production? |
-
-Entities progress through a commitment lifecycle:
-
-```
-Concept → Validation → Commitment
+```bash
+bun test                                    # unit tests
+bun run typecheck
+bun run eval                                # eval suite
+bun run vera validate examples/logs/thin.json
+bun run vera generate deliverable --log examples/logs/strong.json --type strategy --out strategy.json
 ```
 
-A capability cannot advance to Commitment if it has untested assumptions. The monitor enforces this.
+**Configuration.** Set these in the `llm` block of `vera.config.json`, or override them with environment variables:
 
-## Configuration
+| Setting | Env | Default |
+|---|---|---|
+| `provider` | `VERA_PROVIDER` | `anthropic` |
+| `model` | `VERA_MODEL` | `claude-sonnet-5-5` |
+| `effort` | `VERA_EFFORT` | `medium` |
+| `max_tokens` | `VERA_MAX_TOKENS` | `16000` |
+| `timeout_ms` | `VERA_TIMEOUT_MS` | `120000` |
+| `max_retries` | `VERA_MAX_RETRIES` | `2` (3 attempts) |
+| `trace` | `VERA_TRACE` | `file` → `traces/YYYY-MM-DD.jsonl` (server uses `console`) |
 
-`vera.config.json`:
+Demo limits: `VERA_RATE_LIMIT` (live generations per IP per window, default 6), `VERA_RATE_WINDOW_MIN` (60) and `VERA_DAILY_CAP` (300).
+
+**Evidence log format** (see `examples/logs/` and `src/evidence/schema.ts`):
 
 ```json
 {
-  "artifacts_enabled": ["strategy", "roadmap", "scope_check"],
-  "slack_webhook": "https://hooks.slack.com/...",
-  "watch": { "enabled": true, "debounce_ms": 2000 },
-  "llm": { "generation_model": "claude-opus-4-5" },
-  "stacks": {
-    "url": "http://localhost:3000",
-    "fieldbook_id": "fb-xxx",
-    "sync_enabled": true
-  }
+  "schema_version": "1",
+  "client": { "name": "…", "industry": "…", "description": "…" },
+  "engagement": { "goal": "…", "timeline_weeks": 8, "team_size": 3, "constraints": ["…"] },
+  "items": [
+    {
+      "id": "EV-001",
+      "source_type": "interview",
+      "source": "12 interviews with lapsed customers",
+      "summary": "…",
+      "confidence": "medium",
+      "date": "2026-07-03",
+      "tags": ["churn"],
+      "conflicts_with": ["EV-005"]
+    }
+  ]
 }
 ```
 
-## Environment
+**Deploy.** The `Dockerfile` runs anywhere that runs containers. For Fly.io: `fly launch --no-deploy --copy-config`, `fly secrets set ANTHROPIC_API_KEY=…`, `fly deploy`.
 
-Copy `.env.example` to `.env`:
+---
 
-```bash
-cp .env.example .env
-```
-
-Required:
-- `ANTHROPIC_API_KEY` — for direct Anthropic API access, or
-- `PORTKEY_API_KEY` + `PORTKEY_VIRTUAL_KEY` — for Portkey gateway routing
-
-Optional:
-- `SLACK_WEBHOOK_URL` — for monitor/regeneration notifications
-
-## Evidence Types
-
-| Type | Use case |
-|---|---|
-| `stakeholder_insight` | Interviews, stated needs |
-| `user_research` | Observed behavior, usability findings |
-| `technical_constraint` | Architecture limits, platform realities |
-| `signal` | Quantitative test results, metrics |
-| `client_belief` | Client assumptions that need validation |
-| `market_signal` | Competitive or market evidence |
-| `operational_signal` | Production health, incidents |
-| `adoption_metric` | Usage data, retention signals |
-
-## License
-
-Proprietary — UXEngineered
+The original command-line evidence-store tool (risks, assumptions, the monitor, Stacks sync) is still in `src/cli/`. See [docs/later/LEGACY_CLI.md](docs/later/LEGACY_CLI.md).
