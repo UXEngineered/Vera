@@ -3,7 +3,15 @@
     "scope_check"
   ],
   "watch": {},
-  "llm": {},
+  "llm": {
+    "provider": "anthropic",
+    "model": "claude-sonnet-5-5",
+    "effort": "medium",
+    "max_tokens": 16000,
+    "timeout_ms": 120000,
+    "max_retries": 2,
+    "trace": "file"
+  },
   "stacks": {
     "url": "http://localhost:3000",
     "fieldbook_id": "fb-1776794533986",

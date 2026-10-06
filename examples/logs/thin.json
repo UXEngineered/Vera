@@ -1,0 +1,45 @@
+{
+  "schema_version": "1",
+  "client": {
+    "name": "Quillmark Legal",
+    "industry": "Boutique commercial law firm",
+    "description": "A 30-lawyer firm specialising in commercial contracts for mid-sized businesses."
+  },
+  "engagement": {
+    "goal": "Explore whether an AI-assisted contract intake tool could reduce time spent on first-pass contract review.",
+    "timeline_weeks": 6,
+    "team_size": 2,
+    "constraints": [
+      "Client data cannot leave the firm's approved cloud region"
+    ]
+  },
+  "items": [
+    {
+      "id": "EV-001",
+      "source_type": "stakeholder",
+      "source": "Managing partner, kickoff meeting",
+      "summary": "Managing partner believes associates spend 'about a third of their week' on first-pass contract review and that AI could halve that.",
+      "confidence": "low",
+      "date": "2026-09-08",
+      "tags": ["time-on-review", "ai-intake"]
+    },
+    {
+      "id": "EV-002",
+      "source_type": "anecdote",
+      "source": "One associate, hallway conversation",
+      "summary": "An associate mentioned that clients often send contracts in inconsistent formats (scans, tracked-changes Word files, PDFs).",
+      "confidence": "low",
+      "date": "2026-09-10",
+      "tags": ["document-formats", "ai-intake"]
+    },
+    {
+      "id": "EV-003",
+      "source_type": "desk_research",
+      "source": "Legal-tech vendor blog post",
+      "summary": "A vendor claims its AI review tool cuts first-pass review time by 60–80% at 'leading firms'. No methodology published.",
+      "confidence": "low",
+      "date": "2026-09-11",
+      "tags": ["ai-intake", "market"]
+    }
+  ]
+}

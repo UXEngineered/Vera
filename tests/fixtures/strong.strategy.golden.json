@@ -1,0 +1,40 @@
+{
+  "readiness": "ready",
+  "sections": [
+    {
+      "id": "problem",
+      "claims": [
+        { "text": "Missed appointments are a network-wide problem: 18.4% of 41,200 bookings were no-shows, with every clinic between 15% and 22%.", "evidence_ids": ["EV-001"], "confidence": "high" },
+        { "text": "No-shows drive course drop-off: 34% of patients stop before session 4, and 71% of them missed an appointment first.", "evidence_ids": ["EV-002"], "confidence": "high" },
+        { "text": "Patients who drop off mostly do so because nobody explained what the full course is for.", "evidence_ids": ["EV-005"], "confidence": "high" }
+      ]
+    },
+    {
+      "id": "opportunity",
+      "claims": [
+        { "text": "Reminders with one-tap rescheduling roughly halve no-shows (18.9% to 9.7% in a randomized pilot).", "evidence_ids": ["EV-003"], "confidence": "high" },
+        { "text": "Automating confirmations will free about 90 minutes of front-desk time per clinic per day, the task staff most want removed.", "evidence_ids": ["EV-006"], "confidence": "high" },
+        { "text": "Network-wide reminders are likely worth around 7,900 recovered appointments (≈£380k) a year, based on the finance model.", "evidence_ids": ["EV-012", "EV-003"], "confidence": "medium" }
+      ]
+    },
+    {
+      "id": "direction",
+      "claims": [
+        { "text": "Roll out SMS reminders with one-tap rescheduling to all 14 clinics, integrated with ClinicDesk.", "evidence_ids": ["EV-003", "EV-004", "EV-007", "EV-008"], "confidence": "high" },
+        { "text": "Add a clinician-approved 'why your course matters' message after session 1 to address drop-off.", "evidence_ids": ["EV-005", "EV-009"], "confidence": "high" },
+        { "text": "Home-exercise reminders by SMS are likely to help completion, but the evidence comes from other settings and a preference survey.", "evidence_ids": ["EV-010", "EV-011"], "confidence": "medium" }
+      ]
+    },
+    {
+      "id": "risks",
+      "claims": [
+        { "text": "Older patients hesitated at the date picker; accessibility should be watched as rollout widens.", "evidence_ids": ["EV-008"], "confidence": "high" },
+        { "text": "The revenue estimate may not hold if pilot clinics differ from the rest of the network.", "evidence_ids": ["EV-012"], "confidence": "medium" }
+      ]
+    }
+  ],
+  "conflicts": [],
+  "gaps": [
+    { "missing": "Evidence that the session-1 education message reduces drop-off", "why_it_matters": "It is the main lever for drop-off but is untested", "would_raise_confidence": "A/B test across 2–3 clinics measuring completion past session 4", "related_evidence_ids": ["EV-005", "EV-009"] }
+  ]
+}

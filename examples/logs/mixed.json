@@ -1,0 +1,122 @@
+{
+  "schema_version": "1",
+  "client": {
+    "name": "Fernhill Market",
+    "industry": "Regional grocery retail",
+    "description": "A 22-store regional grocery chain with a loyal but ageing customer base, under price pressure from discount chains."
+  },
+  "engagement": {
+    "goal": "Decide whether a loyalty app is the right investment to grow repeat visits, and if so, what it should do first.",
+    "timeline_weeks": 10,
+    "team_size": 3,
+    "constraints": [
+      "Capital budget for digital is fixed at £400k this year",
+      "Point-of-sale system is 9 years old; vendor support ends in 18 months"
+    ]
+  },
+  "items": [
+    {
+      "id": "EV-001",
+      "source_type": "survey",
+      "source": "In-store intercept survey, 410 shoppers across 6 stores",
+      "summary": "58% said they would 'probably' or 'definitely' use a Fernhill loyalty app if it offered personalised discounts.",
+      "confidence": "medium",
+      "date": "2026-06-14",
+      "tags": ["loyalty-app", "demand"],
+      "conflicts_with": ["EV-002"]
+    },
+    {
+      "id": "EV-002",
+      "source_type": "analytics",
+      "source": "Existing paper/keytag loyalty scheme data, 3 years",
+      "summary": "Only 14% of active keytag members redeemed a reward in the last 12 months, and keytag sign-ups have declined 9% year on year.",
+      "confidence": "high",
+      "date": "2026-06-20",
+      "tags": ["loyalty-app", "demand", "existing-scheme"],
+      "conflicts_with": ["EV-001"]
+    },
+    {
+      "id": "EV-003",
+      "source_type": "analytics",
+      "source": "Till transaction data, all stores, 12 months",
+      "summary": "Customers aged 60+ account for 46% of revenue. Average basket size is stable; visit frequency has fallen 6% year on year.",
+      "confidence": "high",
+      "date": "2026-06-18",
+      "tags": ["customers", "visit-frequency", "baseline"]
+    },
+    {
+      "id": "EV-004",
+      "source_type": "interview",
+      "source": "9 interviews with lapsed customers",
+      "summary": "Most cited price as the reason they shop elsewhere more often. Three mentioned long queues at peak times. None mentioned the lack of an app.",
+      "confidence": "medium",
+      "date": "2026-07-03",
+      "tags": ["churn", "price", "queues"],
+      "conflicts_with": ["EV-005"]
+    },
+    {
+      "id": "EV-005",
+      "source_type": "stakeholder",
+      "source": "Commercial director",
+      "summary": "Commercial director believes the main reason for falling visits is the lack of a digital offer, citing competitors' apps.",
+      "confidence": "low",
+      "date": "2026-06-10",
+      "tags": ["churn", "loyalty-app"],
+      "conflicts_with": ["EV-004"]
+    },
+    {
+      "id": "EV-006",
+      "source_type": "interview",
+      "source": "5 store manager interviews",
+      "summary": "Store managers report peak-time queues of 10+ minutes at 4 of 5 stores interviewed, driven by understaffed tills rather than till hardware.",
+      "confidence": "medium",
+      "date": "2026-07-08",
+      "tags": ["queues", "operations"]
+    },
+    {
+      "id": "EV-007",
+      "source_type": "technical_review",
+      "source": "POS vendor technical session",
+      "summary": "The current POS cannot accept app-based digital coupons without a middleware layer. Vendor estimate: 4–6 months and £150–220k.",
+      "confidence": "high",
+      "date": "2026-07-15",
+      "tags": ["feasibility", "pos", "loyalty-app"]
+    },
+    {
+      "id": "EV-008",
+      "source_type": "competitive_analysis",
+      "source": "Review of 4 competitor apps and public app-store data",
+      "summary": "Two discount competitors have apps with 4.5+ ratings; the two regional competitors' apps have under 10k downloads each and ratings below 3.",
+      "confidence": "medium",
+      "date": "2026-06-25",
+      "tags": ["competition", "loyalty-app"]
+    },
+    {
+      "id": "EV-009",
+      "source_type": "survey",
+      "source": "Same intercept survey, 60+ segment (n=168)",
+      "summary": "Among shoppers aged 60+, 31% said they would use an app; 52% said they would prefer offers printed on receipts or mailed.",
+      "confidence": "medium",
+      "date": "2026-06-14",
+      "tags": ["loyalty-app", "demand", "customers"]
+    },
+    {
+      "id": "EV-010",
+      "source_type": "experiment",
+      "source": "Receipt-coupon test, 2 stores, 4 weeks",
+      "summary": "Personalised coupons printed on receipts were redeemed at 11% vs 3% for generic coupons (n≈18,000 receipts). Early, two stores only.",
+      "confidence": "medium",
+      "date": "2026-08-10",
+      "tags": ["personalisation", "coupons", "demand"]
+    },
+    {
+      "id": "EV-011",
+      "source_type": "anecdote",
+      "source": "Board member, informal comment",
+      "summary": "A board member said 'everyone under 40 expects an app now'.",
+      "confidence": "low",
+      "date": "2026-06-02",
+      "tags": ["loyalty-app", "demand"]
+    }
+  ]
+}
