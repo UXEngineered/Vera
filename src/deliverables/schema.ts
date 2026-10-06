@@ -8,11 +8,18 @@ export const ReadinessSchema = z.enum(["ready", "partial", "insufficient_evidenc
 export const ActionSchema = z.enum(["build", "validate", "investigate"]);
 export type Action = z.infer<typeof ActionSchema>;
 
+export const GraderSchema = z.enum(["code", "model", "human"]);
+export type Grader = z.infer<typeof GraderSchema>;
+
 export const RawClaimSchema = z.strictObject({
   text: z.string().min(5),
   evidence_ids: z.array(z.string()).min(1, "every claim must cite at least one evidence id"),
   confidence: ConfidenceSchema,
   action: ActionSchema.optional(),
+  // Eval suite only: the claim is a behaviour under test.
+  scenario: z.string().min(10).optional(),
+  pass_criteria: z.string().min(10).optional(),
+  grader: GraderSchema.optional(),
 });
 export type RawClaim = z.infer<typeof RawClaimSchema>;
 

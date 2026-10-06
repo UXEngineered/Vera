@@ -143,3 +143,49 @@ export function renderRulesForPrompt(): string {
     `- If any cited evidence is contested (listed as contested in the evidence profile), the claim is at most ${CONTESTED_CAP.toUpperCase()}.`,
   ].join("\n");
 }
+
+// ─── Confidence → eval role (eval suite deliverable) ─────────────────────────
+//
+// How much an eval case counts is set by the evidence behind it, the same way
+// wording is. Only well-evidenced behaviour may block a release.
+
+export type EvalRole = "regression" | "capability" | "exploratory";
+
+export const EVAL_ROLES: Record<Confidence, { role: EvalRole; label: string; blocking: boolean; meaning: string }> = {
+  high: { role: "regression", label: "Regression", blocking: true, meaning: "Must pass. A failure blocks release." },
+  medium: { role: "capability", label: "Capability", blocking: false, meaning: "Tracked against a threshold. Does not block." },
+  low: { role: "exploratory", label: "Exploratory", blocking: false, meaning: "A hypothesis test. Its result decides whether to commit." },
+};
+
+export function evalRoleFor(confidence: Confidence): EvalRole {
+  return EVAL_ROLES[confidence].role;
+}
+
+/** Pass criteria that only a judgement call could check. */
+export const VAGUE_CRITERIA_TERMS = [
+  "good", "well", "appropriate", "appropriately", "reasonable", "reasonably", "helpful",
+  "high quality", "properly", "correctly", "nice", "satisfactory", "adequate", "as expected",
+];
+
+/** Words that point at something observable in the output or trace. */
+export const OBSERVABLE_CRITERIA_TERMS = [
+  "contains", "does not contain", "includes", "omits", "mentions", "never", "always", "exactly",
+  "calls", "does not call", "returns", "matches", "equals", "cites", "quotes", "refuses",
+  "escalates", "hands off", "asks for", "within", "at least", "at most", "fewer than", "more than",
+];
+
+/**
+ * A pass criterion is measurable when it avoids judgement words and names a
+ * threshold (a number) or an observable behaviour.
+ */
+export function checkMeasurable(criteria: string): string[] {
+  const out: string[] = [];
+  for (const term of VAGUE_CRITERIA_TERMS) {
+    if (wordRegex(term).test(criteria)) out.push(`uses judgement word "${term}"`);
+  }
+  const lower = criteria.toLowerCase();
+  const hasNumber = /\d/.test(criteria);
+  const hasObservable = OBSERVABLE_CRITERIA_TERMS.some((t) => lower.includes(t));
+  if (!hasNumber && !hasObservable) out.push("names no threshold or observable behaviour");
+  return out;
+}

@@ -23,7 +23,7 @@ test("there are 10–20 eval cases", () => {
 });
 
 test("golden outputs pass the cases that apply to them", () => {
-  for (const key of ["strong.strategy", "mixed.strategy", "thin.roadmap"] as RunKey[]) {
+  for (const key of ["strong.strategy", "mixed.strategy", "thin.roadmap", "agent.eval_suite"] as RunKey[]) {
     const o = outcome(key);
     for (const c of CASES.filter((c) => c.runs.includes(key))) {
       expect({ case: c.id, failures: c.assert(o) }).toEqual({ case: c.id, failures: [] });
@@ -49,4 +49,13 @@ test("strong-commits catches over-hedging", () => {
 test("conflict case catches a dropped conflict", () => {
   const o = outcome("mixed.strategy", (out) => out.conflicts.shift());
   expect(run("conflict.surfaced", o)).toEqual(["EV-001 ↔ EV-002 not surfaced"]);
+});
+
+test("eval-suite case catches a blocking case on the contested side", () => {
+  const o = outcome("agent.eval_suite", (out) => {
+    const conflictCase = out.sections[2].claims.shift();
+    conflictCase.confidence = "high";
+    out.sections[0].claims.push(conflictCase);
+  });
+  expect(run("eval_suite.conflict-case", o)[0]).toContain("blocks release on contested evidence");
 });

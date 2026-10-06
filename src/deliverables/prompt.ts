@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { renderRulesForPrompt } from "../confidence/rules.ts";
+import { EVAL_ROLES, renderRulesForPrompt, VAGUE_CRITERIA_TERMS } from "../confidence/rules.ts";
 import type { EvidenceLog } from "../evidence/schema.ts";
 import type { EvidenceProfile } from "../evidence/validate.ts";
 import type { DeliverableSpec } from "./specs.ts";
@@ -19,14 +19,30 @@ export interface BuiltPrompt {
   versions: string[];
 }
 
+function extraClaimFields(spec: DeliverableSpec): string {
+  if (spec.requiresAction) return `, "action": "build" | "validate" | "investigate"`;
+  if (spec.requiresEvalFields) return `, "scenario": "...", "pass_criteria": "...", "grader": "code" | "model" | "human"`;
+  return "";
+}
+
+/** Deliverable prompt file, with any tables rendered from the rules so they cannot drift. */
+function renderDeliverablePrompt(spec: DeliverableSpec): string {
+  const roles = (["high", "medium", "low"] as const)
+    .map((c) => `- ${c.toUpperCase()} confidence → \`${EVAL_ROLES[c].role}\`: ${EVAL_ROLES[c].meaning}`)
+    .join("\n");
+  return readPrompt(spec.prompt)
+    .replace("{{EVAL_ROLES}}", roles)
+    .replace("{{VAGUE_TERMS}}", VAGUE_CRITERIA_TERMS.map((t) => `"${t}"`).join(", "));
+}
+
 export function buildPrompt(spec: DeliverableSpec, log: EvidenceLog, profile: EvidenceProfile): BuiltPrompt {
   const sections = spec.sections.map((s) => `- \`${s.id}\` (${s.title}): ${s.purpose}`).join("\n");
   const system = readPrompt(SYSTEM_PROMPT_FILE)
     .replaceAll("{{DELIVERABLE_TITLE}}", spec.title.toLowerCase())
     .replace("{{CONFIDENCE_RULES}}", renderRulesForPrompt())
-    .replace("{{ACTION_FIELD}}", spec.requiresAction ? `, "action": "build" | "validate" | "investigate"` : "")
+    .replace("{{ACTION_FIELD}}", extraClaimFields(spec))
     .replace("{{SECTIONS}}", sections)
-    .replace("{{DELIVERABLE_INSTRUCTIONS}}", readPrompt(spec.prompt));
+    .replace("{{DELIVERABLE_INSTRUCTIONS}}", renderDeliverablePrompt(spec));
 
   const conflicts = profile.conflictPairs.length
     ? profile.conflictPairs.map(([a, b]) => `${a} ↔ ${b}`).join(", ")

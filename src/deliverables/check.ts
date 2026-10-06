@@ -1,6 +1,6 @@
 import type { EvidenceLog } from "../evidence/schema.ts";
 import type { EvidenceProfile, Readiness } from "../evidence/validate.ts";
-import { checkLanguage, deriveClaimConfidence, isAtMost } from "../confidence/rules.ts";
+import { checkLanguage, checkMeasurable, deriveClaimConfidence, evalRoleFor, isAtMost } from "../confidence/rules.ts";
 import { RawDeliverableSchema, type Deliverable, type RawDeliverable, type Section } from "./schema.ts";
 import type { DeliverableSpec } from "./specs.ts";
 
@@ -10,7 +10,8 @@ export type CheckKind =
   | "traceability"
   | "confidence"
   | "conflict"
-  | "restraint";
+  | "restraint"
+  | "measurability";
 
 export interface CheckIssue {
   check: CheckKind;
@@ -104,6 +105,26 @@ export function checkDeliverable(
         add("confidence", path, `${effective}-confidence claim ${v.detail}: "${rc.text}"`);
       }
 
+      if (spec.requiresEvalFields) {
+        for (const field of ["scenario", "pass_criteria", "grader"] as const) {
+          if (!rc[field]) add("structure", path, `eval cases need a ${field}`);
+        }
+        if (rc.pass_criteria) {
+          for (const problem of checkMeasurable(rc.pass_criteria)) {
+            add("measurability", path, `pass criteria ${problem}: "${rc.pass_criteria}"`);
+          }
+        }
+        // The role a case plays is set by its evidence: only well-evidenced behaviour may block a release.
+        // A case may sit in a lower role than its evidence allows, never a higher one.
+        const role = evalRoleFor(effective);
+        const rank = (r: string) => ["exploratory", "capability", "regression"].indexOf(r);
+        if (rank(rs.id) > rank(role)) {
+          add("confidence", path, `${effective}-confidence case can be at most ${role}, not ${rs.id}`);
+        }
+      } else if (rc.scenario || rc.pass_criteria || rc.grader) {
+        add("structure", path, "scenario, pass_criteria and grader are only for eval suites");
+      }
+
       if (spec.requiresAction) {
         if (!rc.action) add("structure", path, "roadmap items need an action: build, validate or investigate");
         else if (rc.action === "build" && effective === "low") {
@@ -130,6 +151,14 @@ export function checkDeliverable(
   for (const [a, b] of profile.conflictPairs) {
     const surfaced = raw.conflicts.some((c) => c.evidence_ids.includes(a) && c.evidence_ids.includes(b));
     if (!surfaced) add("conflict", "conflicts", `conflict between ${a} and ${b} is not surfaced`);
+  }
+
+  // 4b. Eval suites: every conflict needs a case that can tell the two sides apart
+  if (spec.requiresEvalFields) {
+    for (const [a, b] of profile.conflictPairs) {
+      const discriminating = raw.sections.some((s) => s.claims.some((c) => c.evidence_ids.includes(a) && c.evidence_ids.includes(b)));
+      if (!discriminating) add("conflict", "sections", `no eval case cites both ${a} and ${b} to settle their conflict`);
+    }
   }
 
   // 5. Gaps

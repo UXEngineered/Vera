@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import index from "../web/index.html";
-import { DELIVERABLES, isDeliverableId } from "../deliverables/specs.ts";
+import { DELIVERABLES, isDeliverableId, PUBLIC_DELIVERABLES } from "../deliverables/specs.ts";
 import { validateEvidenceLog } from "../evidence/validate.ts";
 import { createProvider, createTraceSink, loadLlmConfig, ReplayProvider, type LlmProvider } from "../llm/index.ts";
 import { generateDeliverable, type PipelineEvent } from "../pipeline/generate.ts";
@@ -39,8 +39,9 @@ async function handleGenerate(req: Request, server: Bun.Server<unknown>): Promis
   } catch {
     return json({ error: "Request body must be JSON." }, 400);
   }
-  if (!body.deliverable || !isDeliverableId(body.deliverable)) {
-    return json({ error: `deliverable must be one of: ${Object.keys(DELIVERABLES).join(", ")}` }, 400);
+  // Deliverables that haven't passed a live eval run yet are CLI-only.
+  if (!body.deliverable || !isDeliverableId(body.deliverable) || !DELIVERABLES[body.deliverable].public) {
+    return json({ error: `deliverable must be one of: ${PUBLIC_DELIVERABLES.map((d) => d.id).join(", ")}` }, 400);
   }
   const spec = DELIVERABLES[body.deliverable];
 
@@ -125,9 +126,9 @@ const server = Bun.serve({
       json({
         live: liveAvailable,
         model: liveAvailable ? `${config.provider}/${config.model}` : null,
-        deliverables: Object.values(DELIVERABLES).map((d) => ({ id: d.id, title: d.title })),
+        deliverables: PUBLIC_DELIVERABLES.map((d) => ({ id: d.id, title: d.title })),
         recorded: Object.fromEntries(
-          SAMPLE_NAMES.map((n) => [n, Object.keys(DELIVERABLES).filter((d) => loadRecording(n, d as "strategy") !== null)]),
+          SAMPLE_NAMES.map((n) => [n, PUBLIC_DELIVERABLES.map((d) => d.id).filter((d) => loadRecording(n, d) !== null)]),
         ),
       }),
     "/api/samples": () =>
