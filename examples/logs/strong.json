@@ -1,0 +1,128 @@
+{
+  "schema_version": "1",
+  "client": {
+    "name": "Tidewell Physio",
+    "industry": "Outpatient physiotherapy",
+    "description": "A network of 14 physiotherapy clinics. Patients book a course of 6–10 sessions; revenue depends on patients completing the course."
+  },
+  "engagement": {
+    "goal": "Reduce missed appointments and mid-course drop-off without adding front-desk headcount.",
+    "timeline_weeks": 12,
+    "team_size": 4,
+    "constraints": [
+      "Must integrate with the existing ClinicDesk booking system (read/write API available)",
+      "No new front-desk hires in this financial year",
+      "Patient messaging must meet UK GDPR and NHS data-handling guidance"
+    ]
+  },
+  "items": [
+    {
+      "id": "EV-001",
+      "source_type": "analytics",
+      "source": "ClinicDesk booking export, all 14 clinics, Jan–Jun",
+      "summary": "18.4% of booked appointments were missed without notice (no-show), across 41,200 appointments. Rate is consistent across clinics (range 15–22%).",
+      "confidence": "high",
+      "date": "2026-07-02",
+      "tags": ["no-shows", "baseline"]
+    },
+    {
+      "id": "EV-002",
+      "source_type": "analytics",
+      "source": "ClinicDesk booking export, course-level view",
+      "summary": "34% of patients who start a course stop before session 4. Of those, 71% had at least one no-show before dropping off.",
+      "confidence": "high",
+      "date": "2026-07-02",
+      "tags": ["drop-off", "no-shows", "baseline"]
+    },
+    {
+      "id": "EV-003",
+      "source_type": "experiment",
+      "source": "SMS reminder pilot, 3 clinics, 6 weeks, randomized by appointment",
+      "summary": "A 24-hour SMS reminder with a one-tap reschedule link cut no-shows from 18.9% (control, n=2,310) to 9.7% (treatment, n=2,284). Difference significant at p<0.01.",
+      "confidence": "high",
+      "date": "2026-08-20",
+      "tags": ["no-shows", "reminders", "rescheduling"]
+    },
+    {
+      "id": "EV-004",
+      "source_type": "experiment",
+      "source": "SMS reminder pilot, follow-up analysis",
+      "summary": "38% of patients who tapped the reschedule link rebooked within the same week, filling slots that would otherwise have been lost.",
+      "confidence": "high",
+      "date": "2026-08-27",
+      "tags": ["rescheduling", "utilization"]
+    },
+    {
+      "id": "EV-005",
+      "source_type": "interview",
+      "source": "12 interviews with patients who dropped off mid-course",
+      "summary": "9 of 12 said they stopped because they 'felt better' or 'didn't see the point of the remaining sessions'; none had been told what the full course was meant to achieve.",
+      "confidence": "high",
+      "date": "2026-07-18",
+      "tags": ["drop-off", "motivation", "patient-education"]
+    },
+    {
+      "id": "EV-006",
+      "source_type": "interview",
+      "source": "8 interviews with front-desk staff across 5 clinics",
+      "summary": "Front desk spends roughly 90 minutes per day phoning patients to confirm appointments. Staff consistently name this as the task they would most like removed.",
+      "confidence": "high",
+      "date": "2026-07-10",
+      "tags": ["staff-workload", "reminders"]
+    },
+    {
+      "id": "EV-007",
+      "source_type": "technical_review",
+      "source": "ClinicDesk API review with Tidewell IT",
+      "summary": "ClinicDesk exposes appointment read/write and webhook events for booking changes. Rate limits (600 req/min) are well above projected load.",
+      "confidence": "high",
+      "date": "2026-07-14",
+      "tags": ["integration", "feasibility"]
+    },
+    {
+      "id": "EV-008",
+      "source_type": "usability_test",
+      "source": "Moderated test of reschedule flow, 10 patients aged 25–78",
+      "summary": "10 of 10 completed the reschedule flow from SMS; median time 41 seconds. Two participants over 70 hesitated at the date picker but completed it.",
+      "confidence": "high",
+      "date": "2026-08-05",
+      "tags": ["rescheduling", "usability", "accessibility"]
+    },
+    {
+      "id": "EV-009",
+      "source_type": "stakeholder",
+      "source": "Clinical director workshop",
+      "summary": "Clinical leads agree that a short 'why your course matters' message after session 1 is clinically appropriate and want to approve the wording.",
+      "confidence": "high",
+      "date": "2026-07-22",
+      "tags": ["patient-education", "drop-off", "governance"]
+    },
+    {
+      "id": "EV-010",
+      "source_type": "survey",
+      "source": "Post-session survey, 640 responses",
+      "summary": "61% of respondents said they would prefer to receive exercise reminders between sessions by SMS; 22% preferred email; 17% wanted none.",
+      "confidence": "medium",
+      "date": "2026-08-12",
+      "tags": ["home-exercise", "channel-preference"]
+    },
+    {
+      "id": "EV-011",
+      "source_type": "desk_research",
+      "source": "Published studies on physiotherapy adherence (3 papers)",
+      "summary": "Studies associate structured home-exercise reminders with 10–20% better course completion, though settings and populations differ from Tidewell's.",
+      "confidence": "medium",
+      "date": "2026-07-30",
+      "tags": ["home-exercise", "drop-off"]
+    },
+    {
+      "id": "EV-012",
+      "source_type": "analytics",
+      "source": "Finance model built with Tidewell finance lead",
+      "summary": "Each recovered appointment is worth roughly £48 in revenue. At the pilot's effect size, network-wide reminders would recover about 7,900 appointments per year.",
+      "confidence": "medium",
+      "date": "2026-09-01",
+      "tags": ["viability", "revenue"]
+    }
+  ]
+}
