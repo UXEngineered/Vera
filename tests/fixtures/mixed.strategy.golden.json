@@ -1,0 +1,38 @@
+{
+  "readiness": "partial",
+  "sections": [
+    {
+      "id": "problem",
+      "claims": [
+        { "text": "Visit frequency has fallen 6% year on year while basket size is stable, so the problem is how often people come, not what they buy.", "evidence_ids": ["EV-003"], "confidence": "high" },
+        { "text": "Price and peak-time queues appear to be the main reasons lapsed customers shop elsewhere.", "evidence_ids": ["EV-004", "EV-006"], "confidence": "medium" }
+      ]
+    },
+    {
+      "id": "opportunity",
+      "claims": [
+        { "text": "Personalised offers look promising: early receipt-coupon tests suggest redemption is several times higher than generic coupons.", "evidence_ids": ["EV-010"], "confidence": "medium" }
+      ]
+    },
+    {
+      "id": "direction",
+      "claims": [
+        { "text": "Evidence suggests testing personalised offers through receipts before committing to an app, since 60+ shoppers (46% of revenue) lean towards printed offers.", "evidence_ids": ["EV-009", "EV-010", "EV-003"], "confidence": "medium" },
+        { "text": "Hypothesis to test: a loyalty app would lift visit frequency. Survey interest conflicts with weak engagement in the existing scheme.", "evidence_ids": ["EV-001", "EV-002"], "confidence": "low" }
+      ]
+    },
+    {
+      "id": "risks",
+      "claims": [
+        { "text": "App-based coupons need POS middleware costing £150–220k, likely over half the digital budget.", "evidence_ids": ["EV-007"], "confidence": "medium" }
+      ]
+    }
+  ],
+  "conflicts": [
+    { "evidence_ids": ["EV-001", "EV-002"], "description": "Stated app interest (58%) conflicts with low engagement in the existing loyalty scheme (14% redeemed).", "how_to_resolve": "Fake-door test of app sign-up in 2 stores measuring actual sign-ups." },
+    { "evidence_ids": ["EV-004", "EV-005"], "description": "Lapsed customers cite price and queues; the commercial director believes the lack of an app is the cause.", "how_to_resolve": "Larger lapsed-customer survey with ranked reasons." }
+  ],
+  "gaps": [
+    { "missing": "Whether queue reduction would lift visits", "why_it_matters": "Queues may be a cheaper fix than an app", "would_raise_confidence": "Staffing trial at peak in 2 stores tracking visit frequency", "related_evidence_ids": ["EV-006"] }
+  ]
+}

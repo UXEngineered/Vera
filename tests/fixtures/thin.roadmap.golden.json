@@ -1,0 +1,20 @@
+{
+  "readiness": "insufficient_evidence",
+  "sections": [
+    {
+      "id": "now",
+      "claims": [
+        { "text": "Hypothesis to test: associates spend about a third of their week on first-pass review. Time-track 5 associates for 2 weeks.", "evidence_ids": ["EV-001"], "confidence": "low", "action": "investigate" },
+        { "text": "Hypothesis to test: inconsistent document formats are a major source of review effort. Sample 50 recent inbound contracts.", "evidence_ids": ["EV-002"], "confidence": "low", "action": "investigate" }
+      ]
+    },
+    { "id": "next", "claims": [], "note": "Needs a measured baseline of review time before any tool can be evaluated." },
+    { "id": "later", "claims": [], "note": "No evidence yet that AI intake would work for this firm's contracts or meet its data-residency constraint." }
+  ],
+  "conflicts": [],
+  "gaps": [
+    { "missing": "Measured time spent on first-pass review", "why_it_matters": "The whole case rests on a single estimate", "would_raise_confidence": "Two weeks of time tracking across associates", "related_evidence_ids": ["EV-001"] },
+    { "missing": "Associate and client perspectives", "why_it_matters": "Only the managing partner and one associate have been heard", "would_raise_confidence": "6–8 interviews with associates and 3 clients", "related_evidence_ids": [] },
+    { "missing": "Independent evidence on AI review accuracy", "why_it_matters": "The only figure is unsourced vendor marketing", "would_raise_confidence": "A blind trial on 20 past contracts with known issues", "related_evidence_ids": ["EV-003"] }
+  ]
+}

@@ -8,6 +8,7 @@ import { registerGenerateCommand } from "./generate.ts";
 import { registerWatchCommand } from "./watch.ts";
 import { registerImportCommand } from "./import.ts";
 import { registerApproveCommand } from "./approve.ts";
+import { registerValidateCommand } from "./validate.ts";
 
 const program = new Command();
 
@@ -24,5 +25,6 @@ registerGenerateCommand(program);
 registerWatchCommand(program);
 registerImportCommand(program);
 registerApproveCommand(program);
+registerValidateCommand(program);
 
 program.parse();

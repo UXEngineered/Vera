@@ -1,127 +1,82 @@
 import type { Command } from "commander";
 import chalk from "chalk";
-import { getStore, resolveStorePath, resolveArtifactsPath, loadConfig } from "../config.ts";
-import { generateAllArtifacts, generateArtifact } from "../generator/artifacts/index.ts";
+import { readFile, writeFile } from "node:fs/promises";
+import { getStore, loadConfig } from "../config.ts";
 import { generateCandidateAssumptions } from "../generator/assumptions.ts";
-import type { ArtifactType } from "../schema/index.ts";
-import { sendSlackMessage, formatRegenerationSlackMessage } from "../communication/slack.ts";
-import { StacksClient, IdMap, mapGeneratedArtifact } from "../stacks/index.ts";
-
-async function pushArtifactToStacks(
-  config: Awaited<ReturnType<typeof loadConfig>>,
-  veraType: string,
-  content: string,
-): Promise<void> {
-  if (!config.stacks?.sync_enabled) return;
-
-  try {
-    const client = new StacksClient(config.stacks.url);
-    const idMap = new IdMap(resolveStorePath());
-    const allStacksIds = await idMap.allValues();
-    const payload = mapGeneratedArtifact(veraType, content, allStacksIds);
-    const stacksId = await client.createArtifact(config.stacks.fieldbook_id, payload);
-    console.log(chalk.dim(`  [stacks] synced artifact → ${stacksId}`));
-  } catch (e) {
-    console.error(chalk.yellow(`  [stacks] failed to sync artifact:`), e instanceof Error ? e.message : e);
-  }
-}
+import { formatCheckIssues } from "../deliverables/check.ts";
+import { DELIVERABLES, isDeliverableId } from "../deliverables/specs.ts";
+import { formatIssues, parseEvidenceLog } from "../evidence/validate.ts";
+import { createProvider, createTraceSink, loadLlmConfig } from "../llm/index.ts";
+import { generateDeliverable } from "../pipeline/generate.ts";
 
 export function registerGenerateCommand(program: Command): void {
   const gen = program
     .command("generate")
-    .description("Generate artifacts or assumptions from the evidence store");
+    .description("Generate deliverables from an evidence log, or assumptions from the evidence store");
 
   gen
-    .command("artifacts")
-    .description("Generate all enabled artifacts")
-    .action(async () => {
-      const store = await getStore();
-      if (!(await store.isInitialized())) {
-        console.log(chalk.red("Evidence store not initialized. Run: vera init --engagement <name>"));
-        return;
-      }
-
-      const config = await loadConfig();
-      const artifactsDir = resolveArtifactsPath();
-      const enabledWithGenerators = config.artifacts_enabled.filter(
-        (t) => ["strategy", "roadmap", "scope_check"].includes(t),
-      );
-
-      console.log();
-      console.log(
-        chalk.white.bold(`Generating artifacts`) +
-        chalk.dim(` (${enabledWithGenerators.length} enabled: ${enabledWithGenerators.join(", ")})`),
-      );
-      console.log();
-
-      const results = await generateAllArtifacts(
-        store,
-        { ...config, artifacts_enabled: enabledWithGenerators },
-        artifactsDir,
-        (type, status, elapsed) => {
-          const label = type.replace(/_/g, " ").padEnd(18);
-          if (status === "start") {
-            process.stdout.write(`  ${label} ${"·".repeat(10)} `);
-          } else if (status === "done") {
-            console.log(chalk.green(`done`) + chalk.dim(` (${elapsed?.toFixed(1)}s)`));
-          } else {
-            console.log(chalk.red("failed"));
-          }
-        },
-      );
-
-      console.log();
-      console.log(chalk.green.bold(`${results.length} artifact(s) written to ${artifactsDir}/current/`));
-      for (const r of results) {
-        console.log(`  ${chalk.dim(r.filePath)}`);
-      }
-
-      // Push generated artifacts to Stacks
-      for (const r of results) {
-        await pushArtifactToStacks(config, r.type, r.content);
-      }
-
-      // Slack notification
-      if (config.slack_webhook) {
-        const msg = formatRegenerationSlackMessage(
-          results.map((r) => r.type),
-          [],
-        );
-        await sendSlackMessage(config.slack_webhook, msg);
-        console.log(chalk.dim("\n  Slack notified."));
-      }
-
-      console.log();
-    });
-
-  gen
-    .command("artifact")
-    .description("Generate a specific artifact")
-    .requiredOption("--type <type>", "Artifact type (strategy, roadmap, scope_check)")
+    .command("deliverable")
+    .description("Generate a checked deliverable from an evidence log file")
+    .requiredOption("--log <file>", "Evidence log JSON (see examples/logs/)")
+    .requiredOption("--type <type>", `Deliverable: ${Object.keys(DELIVERABLES).join(", ")}`)
+    .option("--out <file>", "Write the checked deliverable JSON here")
     .action(async (opts) => {
-      const store = await getStore();
-      if (!(await store.isInitialized())) {
-        console.log(chalk.red("Evidence store not initialized. Run: vera init --engagement <name>"));
+      if (!isDeliverableId(opts.type)) {
+        console.log(chalk.red(`Unknown deliverable "${opts.type}". Choose: ${Object.keys(DELIVERABLES).join(", ")}`));
+        process.exitCode = 1;
+        return;
+      }
+      const parsed = parseEvidenceLog(await readFile(opts.log, "utf-8"));
+      if (!parsed.ok) {
+        console.log(chalk.red(`Invalid evidence log ${opts.log}:`));
+        console.log(formatIssues(parsed.issues));
+        process.exitCode = 1;
         return;
       }
 
-      const config = await loadConfig();
-      const artifactsDir = resolveArtifactsPath();
-      const type = opts.type as ArtifactType;
-
+      const config = loadLlmConfig();
+      const spec = DELIVERABLES[opts.type as keyof typeof DELIVERABLES];
       console.log();
-      console.log(chalk.white.bold(`Generating ${type}...`));
+      console.log(chalk.white.bold(`Generating ${spec.title.toLowerCase()}`) + chalk.dim(` (${config.provider}/${config.model})`));
 
-      const startTime = Date.now();
+      let provider;
       try {
-        const result = await generateArtifact(store, type, config, artifactsDir);
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.log(chalk.green(`\n  Done in ${elapsed}s → ${result.filePath}`));
-        await pushArtifactToStacks(config, result.type, result.content);
+        provider = createProvider(config);
       } catch (err) {
-        console.log(chalk.red(`\n  Failed: ${err}`));
+        console.log(chalk.red(`  ${(err as Error).message}`));
+        process.exitCode = 1;
+        return;
       }
-      console.log();
+      const result = await generateDeliverable({
+        log: parsed.log,
+        spec,
+        provider,
+        config,
+        trace: createTraceSink(config),
+        onEvent: (e) => {
+          if (e.type === "start") console.log(chalk.dim(`  evidence readiness: ${e.profile.readiness}`));
+          if (e.type === "attempt") process.stdout.write(chalk.dim(`  attempt ${e.attempt}/${e.max_attempts} `));
+          if (e.type === "draft_section") process.stdout.write(chalk.dim("·"));
+          if (e.type === "retry") console.log(chalk.yellow(` ${e.issues.length} issue(s), retrying`));
+          if (e.type === "done") console.log(chalk.green(" passed checks"));
+          if (e.type === "failed") console.log(chalk.red(" failed checks"));
+        },
+      });
+
+      if (!result.ok) {
+        console.log(chalk.red(`\n  ${result.message}:`));
+        console.log(formatCheckIssues(result.issues));
+        process.exitCode = 1;
+        return;
+      }
+      const json = JSON.stringify(result.deliverable, null, 2);
+      if (opts.out) {
+        await writeFile(opts.out, json);
+        console.log(chalk.dim(`  written to ${opts.out}`));
+      } else {
+        console.log(json);
+      }
+      console.log(chalk.dim(`  ${result.usage.input_tokens} in / ${result.usage.output_tokens} out tokens, ${(result.usage.latency_ms / 1000).toFixed(1)}s`));
     });
 
   // ─── vera generate assumptions ───────────────────────────────────

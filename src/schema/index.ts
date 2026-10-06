@@ -322,12 +322,12 @@ export const VeraConfigSchema = z.object({
   watch: z.object({
     enabled: z.boolean().default(true),
     debounce_ms: z.number().default(2000),
-  }).default({}),
+  }).prefault({}),
   llm: z.object({
     provider: z.string().default("portkey"),
     generation_model: z.string().default("claude-opus-4-5"),
     validation_model: z.string().default("claude-sonnet-4-20250514"),
-  }).default({}),
+  }).prefault({}),
   stacks: StacksConfigSchema.optional(),
 });
 export type VeraConfig = z.infer<typeof VeraConfigSchema>;
