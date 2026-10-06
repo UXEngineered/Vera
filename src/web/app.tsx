@@ -181,13 +181,8 @@ export function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <span className="logo" aria-hidden>
-            V
-          </span>
-          <div>
-            <div className="wordmark">VERA</div>
-            <div className="tagline">Validated Evidence → Ready Artifacts</div>
-          </div>
+          <div className="wordmark">VERA</div>
+          <div className="tagline">validated evidence → ready artifacts</div>
         </div>
         <div className="topbar-right">
           {config && (
