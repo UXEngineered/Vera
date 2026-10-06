@@ -12,7 +12,8 @@
     "vera": "bun run src/cli/index.ts",
     "dev": "bun run src/cli/index.ts",
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "eval": "bun run evals/run.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
