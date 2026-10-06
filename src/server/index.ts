@@ -17,7 +17,7 @@ const availableDeliverables = preview ? Object.values(DELIVERABLES) : PUBLIC_DEL
 const availableSamples: SampleName[] = preview ? [...SAMPLE_NAMES] : PUBLIC_SAMPLE_NAMES;
 const samples = loadSamples().filter((s) => availableSamples.includes(s.name));
 const liveAvailable = Boolean(process.env.ANTHROPIC_API_KEY);
-const limiter = new RateLimiter(env("VERA_RATE_LIMIT", 6), env("VERA_RATE_WINDOW_MIN", 60) * 60_000, env("VERA_DAILY_CAP", 300));
+const limiter = new RateLimiter(env("VERA_RATE_LIMIT", 6), env("VERA_RATE_WINDOW_MIN", 60) * 60_000, env("VERA_DAILY_CAP", 100));
 const MAX_LOG_BYTES = 64 * 1024;
 const MAX_ITEMS = 80;
 

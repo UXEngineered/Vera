@@ -1,7 +1,8 @@
-# Deploy: fly launch --no-deploy --copy-config (pick an app name), then
+# App: vera-qio5gg (https://vera-qio5gg.fly.dev)
 #   fly secrets set ANTHROPIC_API_KEY=sk-ant-...
 #   fly deploy
-app = "vera-demo"
+#   fly scale count 1   # rate limits live in memory, so run one machine
+app = "vera-qio5gg"
 primary_region = "lhr"
 
 [build]
@@ -9,7 +10,7 @@ primary_region = "lhr"
 [env]
   VERA_RATE_LIMIT = "6"        # live generations per IP per window
   VERA_RATE_WINDOW_MIN = "60"
-  VERA_DAILY_CAP = "300"       # live generations per day, across everyone
+  VERA_DAILY_CAP = "100"       # live generations per day, across everyone (per machine)
 
 [http_service]
   internal_port = 3000

@@ -157,7 +157,7 @@ bun run vera generate deliverable --log examples/logs/strong.json --type strateg
 
 `VERA_PREVIEW=1` shows deliverables and samples that haven't passed a live eval run yet (currently the eval suite and the AI support-agent sample).
 
-Demo limits: `VERA_RATE_LIMIT` (live generations per IP per window, default 6), `VERA_RATE_WINDOW_MIN` (60) and `VERA_DAILY_CAP` (300).
+Demo limits: `VERA_RATE_LIMIT` (live generations per IP per window, default 6), `VERA_RATE_WINDOW_MIN` (60) and `VERA_DAILY_CAP` (100).
 
 **Evidence log format** (see `examples/logs/` and `src/evidence/schema.ts`):
 
@@ -181,7 +181,7 @@ Demo limits: `VERA_RATE_LIMIT` (live generations per IP per window, default 6), 
 }
 ```
 
-**Deploy.** The `Dockerfile` runs anywhere that runs containers. For Fly.io: `fly launch --no-deploy --copy-config`, `fly secrets set ANTHROPIC_API_KEY=…`, `fly deploy`.
+**Deploy.** The `Dockerfile` runs anywhere that runs containers. For Fly.io (`fly.toml` targets the `vera-qio5gg` app): `fly secrets set ANTHROPIC_API_KEY=…`, `fly deploy`, then `fly scale count 1` so the in-memory rate limits apply across all traffic.
 
 ---
 
